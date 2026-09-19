@@ -6,6 +6,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { formatMoney, formatDate, formatDateTime, formatNumber } from "@/lib/format";
 import { StatusBadge, DuplicateBadge } from "@/components/StatusBadge";
 import { Pager } from "@/components/Pager";
+import { PageHead } from "@/components/PageHead";
 
 export const dynamic = "force-dynamic";
 const PAGE_SIZE = 25;
@@ -35,25 +36,30 @@ export default async function VerificationQueue(
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>Verification queue</h1>
-          <p>{formatNumber(count ?? 0)} proofs of payment waiting, oldest first.</p>
+      <PageHead
+        eyebrow="Finance"
+        title="Verification queue"
+        sub={`${formatNumber(count ?? 0)} proofs of payment waiting, oldest first.`}
+      />
+
+      <form className="filters" action="/verification">
+        <div className="field">
+          <label htmlFor="status">Show</label>
+          <select id="status" name="status" defaultValue={sp.status ?? ""}>
+            <option value="">Everything open</option>
+            <option value="pending_review">Pending review</option>
+            <option value="under_review">Under review</option>
+            <option value="requires_clarification">Requires clarification</option>
+            <option value="duplicate">Marked duplicate</option>
+          </select>
         </div>
-        <form className="filters" style={{ margin: 0 }} action="/verification">
-          <div className="field">
-            <label htmlFor="status">Show</label>
-            <select id="status" name="status" defaultValue={sp.status ?? ""}>
-              <option value="">Everything open</option>
-              <option value="pending_review">Pending review</option>
-              <option value="under_review">Under review</option>
-              <option value="requires_clarification">Requires clarification</option>
-              <option value="duplicate">Marked duplicate</option>
-            </select>
-          </div>
-          <label><input type="checkbox" name="mine" value="1" defaultChecked={sp.mine === "1"}/>My claims</label><button className="btn" type="submit">Apply</button>
-        </form>
-      </div>
+        <div className="consent" style={{ marginBottom: 0 }}>
+          <input id="mine" type="checkbox" name="mine" value="1"
+                 defaultChecked={sp.mine === "1"} />
+          <label htmlFor="mine">Only payments I have claimed</label>
+        </div>
+        <button className="btn btn-primary" type="submit">Apply</button>
+      </form>
 
       {canVerify(user) && <BulkVerification payments={(data ?? []).map(p => ({ id: p.id, reference: p.payment_ref }))} />}
       <div className="card card-flush">

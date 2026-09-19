@@ -267,3 +267,58 @@ lightweight fixtures, and tests accounting and security invariants. It sends no 
 
 See `ENVIRONMENT.md` for APP_URL, ORG_NAME, RESEND_*, CRON_SECRET and
 PORTAL_SECRET configuration. Configure secrets in your host, never in Git.
+
+---
+
+## 8. Design
+
+The interface follows the institute's own visual language rather than a generic
+admin theme, so an administrator moving between the MSRI website and this system
+sees one institution. The palette, type stack and component treatments are taken
+from the website's own stylesheet (`msri-website: assets/css/global.css` and
+`components.css`).
+
+| Token | Value | Carries |
+| --- | --- | --- |
+| `--navy` | `#0b113b` | Structure: sidebar, page band, headings, primary buttons |
+| `--navy-light` | `#151e54` | The second stop of the band gradient, stat card top rules |
+| `--gold-solid` | `#cba65e` | The accent: gold rules, the main action on a screen, active tab |
+| `--gold` | `#e9c176` | Gold that sits on navy — band headings and figures |
+| `--gold-ink` | `#85651b` | Gold text on white, darkened to pass contrast |
+| `--indigo` | `#4a54c1` | Under review, matching the website's accreditation badge |
+| `--surface` | `#f8fafc` | Page ground (`--bg-light` on the website) |
+
+Rules the CSS follows:
+
+- **Navy is structure, gold is the one accent.** Gold marks a section title
+  (the rule under an `h2`), the screen's single most important action
+  (`btn-gold`), and the active navigation tab. Nothing else uses it, so it keeps
+  meaning something.
+- **State owns the rest of the colour.** Green, amber, red and indigo are
+  reserved for payment state and notices; they are never decorative.
+- **The catalogue label.** `PageHead` renders the website's label row — a 60 px
+  gold rule, then small uppercase wide-tracked text — above every page title, and
+  `.card-flush` carries the 4 px gold top border used on the website's cards.
+- **Type is the institute's stack** (Candara, Calibri, Segoe UI, Optima). It is
+  a local font stack, so no webfont is downloaded and the CSP is unchanged.
+- **The crest** is `public/branding/msri-logo.png`. It is navy on white, so it
+  sits on a white plate in the sidebar, the sign-in panel and the participant
+  portal rather than directly on the navy.
+- Accessibility is unchanged in kind: focus rings are still drawn (in gold),
+  figures keep tabular numerals, and gold used as text is darkened until it
+  passes contrast on white.
+
+Where it lives:
+
+| File | Holds |
+| --- | --- |
+| `src/app/globals.css` | Every token and component rule. Class names are unchanged, so the whole system restyled from one file — including the pages added by the operations layer. |
+| `src/components/PageHead.tsx` | Page heading: gold label, navy title, supporting line, actions. |
+| `src/components/Brand.tsx` | The crest and the sidebar lockup. |
+| `public/branding/msri-logo.png` | The institute's crest, as used on the website. |
+| `design/preview.html` | A static reference of every screen and control, for review without a database. `npm run preview:css` inlines the real stylesheet into it; it is not part of the build and is not shipped. |
+
+One configuration note: production still refuses to be framed
+(`X-Frame-Options: DENY`, `frame-ancestors 'none'`). `next.config.ts` relaxes
+those two headers in development only, so the app can be shown inside a local
+preview pane. The deployed headers are unchanged.

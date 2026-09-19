@@ -12,6 +12,12 @@ import { StatusBadge } from "@/components/StatusBadge";
 // and 30s is invisible to an administrator but dramatically cuts cache misses.
 export const dynamic = "force-dynamic";
 
+/** Figures such as R1 250 000.00 need a step down in size to stay on one line
+ *  inside the band, the same rule the Stat card uses. */
+function valueClass(value: string) {
+  return value.length > 11 ? "value sm" : "value";
+}
+
 export default async function DashboardPage(
   { searchParams }: { searchParams: Promise<{ denied?: string }> },
 ) {
@@ -41,35 +47,60 @@ export default async function DashboardPage(
         </div>
       ) : null}
 
-      <div className="page-head">
-        <div>
-          <h1>Dashboard</h1>
-          <p>Live position across every programme, as at {formatDate(new Date().toISOString())}.</p>
+      {/* The band carries the four figures an administrator opens this screen
+          for, in the institute's navy and gold. The money already banked and
+          the money still owed sit below it as ordinary cards. */}
+      <section className="hero-band">
+        <p className="eyebrow">MSR Learning Institute</p>
+        <h1>Payments and proof of payment</h1>
+        <p className="hero-lede">
+          Live position across every programme, as at {formatDate(new Date().toISOString())}.
+          {" "}
+          {formatNumber(s.pops_pending)} proofs of payment are waiting for a decision.
+        </p>
+        <div className="hero-actions">
+          <Link className="btn btn-gold" href="/verification">
+            Review {formatNumber(s.pops_pending)} waiting
+          </Link>
+          <Link className="btn btn-outline-light" href="/reports">Open reports</Link>
         </div>
-        <Link className="btn btn-primary" href="/verification">
-          Review {formatNumber(s.pops_pending)} waiting
-        </Link>
-      </div>
+        <div className="hero-figures">
+          <div className="hero-figure">
+            <div className="label">Registered participants</div>
+            <div className={valueClass(formatNumber(s.participants_total))}>
+              {formatNumber(s.participants_total)}
+            </div>
+          </div>
+          <div className="hero-figure">
+            <div className="label">Proofs submitted</div>
+            <div className={valueClass(formatNumber(s.pops_total))}>{formatNumber(s.pops_total)}</div>
+            <div className="foot">{formatNumber(s.submitted_today)} today</div>
+          </div>
+          <div className="hero-figure">
+            <div className="label">Awaiting verification</div>
+            <div className={valueClass(formatNumber(s.pops_pending))}>{formatNumber(s.pops_pending)}</div>
+            <div className="foot">Oldest first in the queue</div>
+          </div>
+          <div className="hero-figure">
+            <div className="label">Verified income</div>
+            <div className={valueClass(formatMoney(s.amount_verified))}>
+              {formatMoney(s.amount_verified)}
+            </div>
+            <div className="foot">{formatMoney(s.amount_declared)} declared</div>
+          </div>
+        </div>
+      </section>
 
-      <div className="grid grid-4" style={{ marginBottom: 14 }}>
-        <Stat label="Registered participants" value={formatNumber(s.participants_total)} />
-        <Stat label="Proofs of payment submitted" value={formatNumber(s.pops_total)}
-              foot={`${formatNumber(s.submitted_today)} today`} />
-        <Stat label="Awaiting verification" value={formatNumber(s.pops_pending)} variant="flag" />
-        <Stat label="Needs attention" value={formatNumber(s.pops_attention)} variant="alert"
-              foot="Duplicates and clarifications" />
-      </div>
-
-      <div className="grid grid-4" style={{ marginBottom: 14 }}>
-        <Stat label="Verified income" value={formatMoney(s.amount_verified)}
-              foot={`${formatMoney(s.amount_declared)} declared in total`} />
+      <div className="grid grid-4" style={{ marginBottom: 16 }}>
         <Stat label="Received today" value={formatMoney(s.received_today)} />
         <Stat label="Received this month" value={formatMoney(s.received_month)} />
         <Stat label="Outstanding" value={formatMoney(s.outstanding_total)}
               foot={`${formatNumber(s.participants_outstanding)} participants owe money`} />
+        <Stat label="Needs attention" value={formatNumber(s.pops_attention)} variant="alert"
+              foot="Duplicates and clarifications" />
       </div>
 
-      <div className="grid grid-2" style={{ marginBottom: 14 }}>
+      <div className="grid grid-2" style={{ marginBottom: 16 }}>
         <div className="card">
           <h2>Verified receipts, last 30 days</h2>
           <TrendChart data={s.payments_over_time} />
@@ -83,7 +114,7 @@ export default async function DashboardPage(
         </div>
       </div>
 
-      <div className="grid grid-2" style={{ marginBottom: 14 }}>
+      <div className="grid grid-2" style={{ marginBottom: 16 }}>
         <div className="card">
           <h2>Proof of payment verification</h2>
           <BarChart data={verifyData} total={s.pops_total} />

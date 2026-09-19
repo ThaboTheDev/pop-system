@@ -7,6 +7,7 @@ import { formatMoney, formatDate, formatDateTime, humanise } from "@/lib/format"
 import { StatusBadge, DuplicateBadge } from "@/components/StatusBadge";
 import { Stat } from "@/components/Stat";
 import { logAudit } from "@/lib/audit";
+import { PageHead } from "@/components/PageHead";
 
 export const dynamic = "force-dynamic";
 
@@ -39,22 +40,25 @@ export default async function ParticipantProfile(
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <p className="faint" style={{ margin: 0 }}>
-            <Link href="/participants">Participants</Link>
-          </p>
-          <h1>{person.full_name}</h1>
-          <p>
+      <PageHead
+        back={{ href: "/participants", label: "Participants" }}
+        eyebrow="Participant profile"
+        title={person.full_name}
+        sub={
+          <>
             {person.participant_ref} · {programme?.name}
             {cohort ? ` · ${cohort.name}` : ""}
-          </p>
-        </div>
-        <div className="btn-row">
-          <StatusBadge status={person.payment_status} />
-          {canEditParticipants(user) && <><Link className="btn" href={`/participants/${id}/edit`}>Edit</Link><Link className="btn" href={`/participants/${id}/record-payment`}>Record payment</Link></>}
-        </div>
-      </div>
+          </>
+        }
+      >
+        <StatusBadge status={person.payment_status} />
+        {canEditParticipants(user) ? (
+          <>
+            <Link className="btn btn-sm" href={`/participants/${id}/edit`}>Edit</Link>
+            <Link className="btn btn-sm" href={`/participants/${id}/record-payment`}>Record payment</Link>
+          </>
+        ) : null}
+      </PageHead>
 
       <div className="grid grid-4" style={{ marginBottom: 14 }}>
         <Stat label="Amount due" value={formatMoney(person.amount_due)} />

@@ -18,6 +18,20 @@ const csp = [
   "upgrade-insecure-requests",
 ].join("; ");
 
+// Production refuses to be framed at all. That is the right default for an
+// administration tool, but it also stops the app being shown inside a preview
+// pane or a local tool that embeds it, so the refusal is applied in production
+// only and relaxed in development. Nothing about the deployed app changes.
+const isProduction = process.env.NODE_ENV === "production";
+const frameHeaders = isProduction
+  ? [
+      { key: "X-Frame-Options", value: "DENY" },
+      { key: "Content-Security-Policy", value: csp },
+    ]
+  : [
+      { key: "Content-Security-Policy", value: csp.replace("frame-ancestors 'none'", "frame-ancestors *") },
+    ];
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Three 10 MB documents plus multipart overhead. Hosting platforms can
@@ -40,11 +54,10 @@ const nextConfig: NextConfig = {
       {
         source: "/(.*)",
         headers: [
-          { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
-          { key: "Content-Security-Policy", value: csp },
+          ...frameHeaders,
           {
             key: "Strict-Transport-Security",
             value: "max-age=63072000; includeSubDomains; preload",

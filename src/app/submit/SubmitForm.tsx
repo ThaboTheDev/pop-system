@@ -95,13 +95,21 @@ export function SubmitForm() {
         </div>
       </div>
 
-      <label><input type="checkbox" name="consent" required /> I consent to processing my personal information and documents for payment administration under POPIA.</label>
-      <p><a href="/portal">View my participant portal</a></p>
-      <button className="btn btn-primary" type="submit" disabled={pending}>
+      <div className="consent">
+        <input id="consent" type="checkbox" name="consent" required />
+        <label htmlFor="consent">
+          I consent to processing my personal information and documents for
+          payment administration under POPIA.
+        </label>
+      </div>
+      <button className="btn btn-gold btn-lg" type="submit" disabled={pending}>
         {pending ? "Sending" : "Send proof of payment"}
       </button>
       <p className="faint" style={{ marginTop: 12, marginBottom: 0 }}>
         Your document is stored privately and is seen only by the finance office.
+      </p>
+      <p className="faint" style={{ marginTop: 8, marginBottom: 0 }}>
+        <a href="/portal">Already submitted? Open your participant portal</a>
       </p>
     </form>
   );

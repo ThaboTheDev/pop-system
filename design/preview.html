@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en-ZA">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MSRI redesign — design reference</title>
+    <!--
+      A static reference for the redesigned interface.
+
+      It links the real stylesheet (src/app/globals.css) and reproduces the
+      markup the application renders, so the design can be reviewed without a
+      database connection — every admin screen needs Supabase to sign in.
+      This file is not part of the application and is not shipped.
+    -->
+    <link rel="stylesheet" href="../src/app/globals.css" />
+  </head>
+  <body>
+    <div style="background: #0b113b; color: #fff; padding: 14px 24px; font-size: 13px">
+      <strong style="color: #e9c176">Design reference</strong> · the MSRI look applied to the
+      payments and proof of payment system. This page links the application's own stylesheet; it is
+      not part of the application.
+    </div>
+
+    <!-- ===================== ADMIN SHELL ===================== -->
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="mark">
+          <img
+            class="brand-logo"
+            src="../public/branding/msri-logo.png"
+            alt="Mzuvukile Slabbert Radebe Institute"
+            width="46"
+            height="46"
+          />
+          <div>
+            <strong>Payments and PoP</strong>
+            <span>MSR Learning Institute</span>
+          </div>
+        </div>
+        <nav>
+          <a href="#"><span>Dashboard</span></a>
+          <a href="#"><span>Participants</span></a>
+          <a href="#"><span>Payments</span></a>
+          <a href="#" aria-current="page"><span>Verification</span><span class="count">128</span></a>
+          <a href="#"><span>Programmes</span></a>
+          <a href="#"><span>Reports</span></a>
+          <a href="#"><span>Bulk import</span></a>
+          <a href="#"><span>Users</span></a>
+          <a href="#"><span>Audit log</span></a>
+          <a href="#"><span>Settings</span></a>
+        </nav>
+        <div class="foot">
+          <strong>Tshidiso Gama</strong><br />
+          Finance admin
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <div class="searchbox">
+            <input type="search" placeholder="Search participant, ID, payment reference, phone, email" />
+          </div>
+          <div style="margin-left: auto; display: flex; gap: 8px; align-items: center">
+            <a class="btn btn-sm" href="#">Participant form</a>
+            <button class="btn btn-sm">Sign out</button>
+          </div>
+        </header>
+
+        <main class="content">
+          <!-- Dashboard band -->
+          <section class="hero-band">
+            <p class="eyebrow">MSR Learning Institute</p>
+            <h1>Payments and proof of payment</h1>
+            <p class="hero-lede">
+              Live position across every programme, as at 19 September 2026. 128 proofs of payment
+              are waiting for a decision.
+            </p>
+            <div class="hero-actions">
+              <a class="btn btn-gold" href="#">Review 128 waiting</a>
+              <a class="btn btn-outline-light" href="#">Open reports</a>
+            </div>
+            <div class="hero-figures">
+              <div class="hero-figure">
+                <div class="label">Registered participants</div>
+                <div class="value">19 842</div>
+              </div>
+              <div class="hero-figure">
+                <div class="label">Proofs submitted</div>
+                <div class="value">51 706</div>
+                <div class="foot">96 today</div>
+              </div>
+              <div class="hero-figure">
+                <div class="label">Awaiting verification</div>
+                <div class="value">128</div>
+                <div class="foot">Oldest first in the queue</div>
+              </div>
+              <div class="hero-figure">
+                <div class="label">Verified income</div>
+                <div class="value sm">R 42 918 450.00</div>
+                <div class="foot">R 44 120 900.00 declared</div>
+              </div>
+            </div>
+          </section>
+
+          <div class="grid grid-4" style="margin-bottom: 16px">
+            <div class="stat">
+              <div class="label">Received today</div>
+              <div class="value sm">R 184 500.00</div>
+            </div>
+            <div class="stat">
+              <div class="label">Received this month</div>
+              <div class="value sm">R 3 942 100.00</div>
+            </div>
+            <div class="stat">
+              <div class="label">Outstanding</div>
+              <div class="value sm">R 11 260 300.00</div>
+              <div class="foot">4 118 participants owe money</div>
+            </div>
+            <div class="stat alert">
+              <div class="label">Needs attention</div>
+              <div class="value">37</div>
+              <div class="foot">Duplicates and clarifications</div>
+            </div>
+          </div>
+
+          <div class="grid grid-2" style="margin-bottom: 16px">
+            <div class="card">
+              <h2>Verified receipts, last 30 days</h2>
+              <svg viewBox="0 0 100 32" preserveAspectRatio="none" style="width: 100%; height: 132px; display: block">
+                <rect x="1" y="18" width="2" height="13" fill="var(--brand)" opacity="0.85"></rect>
+                <rect x="4" y="14" width="2" height="17" fill="var(--brand)" opacity="0.85"></rect>
+                <rect x="7" y="20" width="2" height="11" fill="var(--brand)" opacity="0.85"></rect>
+                <rect x="10" y="10" width="2" height="21" fill="var(--brand)" opacity="0.85"></rect>
+                <rect x="13" y="21" width="2" height="10" fill="var(--brand)" opacity="0.85"></rect>
+                <rect x="16" y="8" width="2" height="23" fill="var(--brand)" opacity="0.85"></rect>
+                <rect x="19" y="16" width="2" height="15" fill="var(--brand)" opacity="0.85"></rect>
+                <rect x="22" y="12" width="2" height="19" fill="var(--brand)" opacity="0.85"></rect>
+                <rect x="25" y="22" width="2" height="9" fill="var(--brand)" opacity="0.85"></rect>
+                <rect x="28" y="6" width="2" height="25" fill="var(--brand)" opacity="0.85"></rect>
+                <rect x="31" y="15" width="2" height="16" fill="var(--brand)" opacity="0.85"></rect>
+                <rect x="34" y="19" width="2" height="12" fill="var(--brand)" opacity="0.85"></rect>
+                <rect x="37" y="9" width="2" height="22" fill="var(--brand)" opacity="0.85"></rect>
+                <rect x="40" y="17" width="2" height="14" fill="var(--brand)" opacity="0.85"></rect>
+                <rect x="43" y="11" width="2" height="20" fill="var(--brand)" opacity="0.85"></rect>
+              </svg>
+              <div class="faint" style="display: flex; justify-content: space-between; margin-top: 6px">
+                <span>21 Aug</span><span>Peak day R 412 000.00</span><span>19 Sep</span>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2>Participant payment status</h2>
+              <div class="bars">
+                <div class="bar-row">
+                  <span>Fully paid</span>
+                  <span class="bar-track"><span class="bar-fill" style="width: 62%"></span></span>
+                  <span class="right">12 310</span>
+                </div>
+                <div class="bar-row">
+                  <span>Partially paid</span>
+                  <span class="bar-track"><span class="bar-fill" style="width: 21%"></span></span>
+                  <span class="right">4 118</span>
+                </div>
+                <div class="bar-row">
+                  <span>Not paid</span>
+                  <span class="bar-track"><span class="bar-fill" style="width: 12%"></span></span>
+                  <span class="right">2 401</span>
+                </div>
+                <div class="bar-row">
+                  <span>Verification pending</span>
+                  <span class="bar-track"><span class="bar-fill" style="width: 4%"></span></span>
+                  <span class="right">912</span>
+                </div>
+                <div class="bar-row">
+                  <span>Payment issue</span>
+                  <span class="bar-track"><span class="bar-fill" style="width: 1%"></span></span>
+                  <span class="right">101</span>
+                </div>
+              </div>
+              <p class="faint" style="margin-top: 12px">12 310 participants have settled in full.</p>
+            </div>
+          </div>
+
+          <div class="card card-flush">
+            <h2>Latest submissions</h2>
+            <div class="table-wrap">
+              <table class="data">
+                <thead>
+                  <tr>
+                    <th>Payment</th><th>Participant</th><th class="num">Amount</th>
+                    <th>Paid on</th><th>Status</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="nowrap">PAY-0009312</td>
+                    <td>Nomvula Dlamini <span class="faint">MSRI-001284</span></td>
+                    <td class="num">R 4 500.00</td>
+                    <td class="nowrap">18 Sep 2026</td>
+                    <td><span class="badge badge-ok">Verified</span></td>
+                    <td class="right"><a class="btn btn-sm" href="#">Open</a></td>
+                  </tr>
+                  <tr class="row-flagged">
+                    <td class="nowrap">PAY-0009311</td>
+                    <td>Sipho Ndlovu <span class="faint">MSRI-000977</span></td>
+                    <td class="num">R 2 500.00</td>
+                    <td class="nowrap">18 Sep 2026</td>
+                    <td>
+                      <span class="badge badge-wait">Pending review</span>
+                      <div style="margin-top: 4px"><span class="badge badge-dupe">Duplicate, review required</span></div>
+                    </td>
+                    <td class="right"><a class="btn btn-sm" href="#">Open</a></td>
+                  </tr>
+                  <tr>
+                    <td class="nowrap">PAY-0009310</td>
+                    <td>Thandi Mokoena <span class="faint">MSRI-000431</span></td>
+                    <td class="num">R 1 200.00</td>
+                    <td class="nowrap">17 Sep 2026</td>
+                    <td><span class="badge badge-note">Under review</span></td>
+                    <td class="right"><a class="btn btn-sm" href="#">Open</a></td>
+                  </tr>
+                  <tr>
+                    <td class="nowrap">PAY-0009309</td>
+                    <td>Johan van Wyk <span class="faint">MSRI-001102</span></td>
+                    <td class="num">R 6 000.00</td>
+                    <td class="nowrap">17 Sep 2026</td>
+                    <td><span class="badge badge-stop">Rejected</span></td>
+                    <td class="right"><a class="btn btn-sm" href="#">Open</a></td>
+                  </tr>
+                  <tr>
+                    <td class="nowrap">PAY-0009308</td>
+                    <td>Ayanda Khumalo <span class="faint">MSRI-000520</span></td>
+                    <td class="num">R 900.00</td>
+                    <td class="nowrap">16 Sep 2026</td>
+                    <td><span class="badge badge-idle">Not paid</span></td>
+                    <td class="right"><a class="btn btn-sm" href="#">Open</a></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="pager">
+              <span>1 to 25 of 51 706</span>
+              <span class="btn-row">
+                <span class="btn btn-sm" aria-current="page">Page 1 of 2 069</span>
+                <a class="btn btn-sm" href="#">Next</a>
+                <a class="btn btn-sm" href="#">Last</a>
+              </span>
+            </div>
+          </div>
+
+          <!-- Verification workspace -->
+          <h2 style="margin: 30px 0 4px">Verification workspace</h2>
+          <p class="faint" style="margin-bottom: 16px">Participant and document side by side, decision below.</p>
+
+          <div class="page-head">
+            <div>
+              <a class="back-link" href="#">Verification queue</a>
+              <p class="eyebrow">Proof of payment</p>
+              <h1>PAY-0009311</h1>
+              <p class="sub">Submitted 18 Sep 2026, 14:02 · Participant form</p>
+            </div>
+            <div class="page-head-actions"><span class="badge badge-wait">Pending review</span></div>
+          </div>
+
+          <div class="notice notice-warn">
+            <strong>Duplicate, review required.</strong> The same amount was submitted on
+            11 Sep 2026. Nothing has been deleted. Confirm against the bank statement before deciding.
+          </div>
+
+          <form class="filters">
+            <div class="field grow">
+              <label for="q">Search</label>
+              <input id="q" type="search" placeholder="Name, participant ID, email or mobile" />
+            </div>
+            <div class="field">
+              <label for="programme">Programme</label>
+              <select id="programme">
+                <option>All programmes</option>
+                <option>Poultry Farming</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" type="button">Apply</button>
+            <a class="btn" href="#">Clear</a>
+          </form>
+
+          <div class="verify-grid">
+            <div style="display: flex; flex-direction: column; gap: 16px">
+              <div class="card">
+                <h2>Participant</h2>
+                <p style="margin: 0 0 10px">
+                  <a href="#">Sipho Ndlovu</a><br />
+                  <span class="faint">MSRI-000977</span>
+                </p>
+                <dl class="facts">
+                  <div><dt>Programme</dt><dd>Poultry Farming</dd></div>
+                  <div><dt>Email</dt><dd>sipho@example.co.za</dd></div>
+                  <div><dt>Amount due</dt><dd>R 12 500.00</dd></div>
+                  <div><dt>Verified to date</dt><dd>R 7 500.00</dd></div>
+                  <div><dt>Outstanding</dt><dd>R 5 000.00</dd></div>
+                </dl>
+              </div>
+              <div class="card">
+                <h2>Decision</h2>
+                <div class="notice notice-ok">Decision saved and recorded in the audit log.</div>
+                <div class="field">
+                  <label for="decision">What is the outcome?</label>
+                  <select id="decision">
+                    <option>Choose an outcome</option>
+                    <option>Verify this payment</option>
+                    <option>Reject</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="note">Administrator note</label>
+                  <textarea id="note" placeholder="What you checked, and against what."></textarea>
+                </div>
+                <div class="btn-row">
+                  <button class="btn btn-primary" type="button">Save decision</button>
+                  <button class="btn" type="button">Save note only</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2>Proof of payment</h2>
+              <div class="doc-frame" style="display: grid; place-items: center">
+                <span class="faint">Bank receipt renders here (iframe or image)</span>
+              </div>
+              <div class="btn-row" style="margin-top: 10px; align-items: center">
+                <a class="btn btn-sm" href="#">Open in new tab</a>
+                <a class="btn btn-sm" href="#">Download</a>
+                <span class="faint">fnb-receipt.pdf · 184 KB</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Component gallery -->
+          <h2 style="margin: 34px 0 4px">Controls and states</h2>
+          <p class="faint" style="margin-bottom: 16px">Every element the administration screens use.</p>
+
+          <div class="grid grid-3">
+            <div class="card">
+              <h2>Buttons</h2>
+              <div class="btn-row">
+                <button class="btn btn-gold">Gold · the main action</button>
+              </div>
+              <div class="btn-row" style="margin-top: 8px">
+                <button class="btn btn-primary">Navy primary</button>
+                <button class="btn">Default</button>
+              </div>
+              <div class="btn-row" style="margin-top: 8px">
+                <button class="btn btn-sm">Small</button>
+                <button class="btn btn-danger">Danger</button>
+                <button class="btn" disabled>Disabled</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2>Status badges</h2>
+              <div class="btn-row">
+                <span class="badge badge-ok">Verified</span>
+                <span class="badge badge-wait">Pending review</span>
+                <span class="badge badge-note">Under review</span>
+                <span class="badge badge-stop">Rejected</span>
+                <span class="badge badge-dupe">Duplicate</span>
+                <span class="badge badge-idle">Not paid</span>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2>Notices</h2>
+              <div class="notice notice-ok" style="margin-bottom: 8px">Received. Waiting to be verified.</div>
+              <div class="notice notice-warn" style="margin-bottom: 8px">Duplicate, review required.</div>
+              <div class="notice notice-error" style="margin-bottom: 8px">That combination was not recognised.</div>
+              <div class="notice notice-info" style="margin-bottom: 0">Read access only.</div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top: 16px">
+            <h2>Form fields</h2>
+            <div class="field-row">
+              <div class="field">
+                <label for="a">Work email</label>
+                <input id="a" type="email" value="finance@msri.online" />
+              </div>
+              <div class="field">
+                <label for="b">Amount paid (R)</label>
+                <input id="b" type="number" value="4500.00" />
+              </div>
+            </div>
+            <div class="field" style="margin-bottom: 0">
+              <label for="c">Administrator note</label>
+              <textarea id="c">Checked against the FNB statement of 18 September.</textarea>
+              <p class="faint" style="margin: 6px 0 0">Focus a field to see the gold ring.</p>
+            </div>
+          </div>
+
+          <div class="grid grid-2" style="margin-top: 16px">
+            <div class="card">
+              <h2>Empty state</h2>
+              <div class="empty">
+                <strong>The queue is clear</strong>
+                Every submitted proof of payment has been dealt with.
+              </div>
+            </div>
+            <div class="card">
+              <h2>Loading skeleton</h2>
+              <div class="skel skel-line" style="width: 132px; margin-bottom: 12px"></div>
+              <div class="skel skel-title"></div>
+              <div class="skel skel-line" style="width: 280px; margin-top: 10px"></div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ===================== SIGN IN ===================== -->
+    <h2 style="margin: 40px 24px 4px">Sign in</h2>
+    <p class="faint" style="margin: 0 24px 16px">Navy panel beside the form, as the institute's own pages do.</p>
+    <div class="auth" style="min-height: 620px">
+      <aside class="auth-aside">
+        <div>
+          <img class="brand-logo" src="../public/branding/msri-logo.png" alt="MSRI" width="64" height="64" />
+          <p class="eyebrow" style="margin-top: 24px">MSR Learning Institute</p>
+          <h2>Payments and proof of payment</h2>
+          <p>
+            Verify what participants have paid, keep every proof of payment against its record, and
+            see the position across every programme.
+          </p>
+        </div>
+        <div class="aside-foot">Mzuvukile Slabbert Radebe Institute · Est. 2015</div>
+      </aside>
+      <main class="auth-main">
+        <div class="auth-card">
+          <p class="eyebrow">Administration</p>
+          <h1>Sign in</h1>
+          <p class="muted" style="font-size: 0.875rem">Finance and registry staff only.</p>
+          <div class="card" style="margin-top: 18px">
+            <div class="field">
+              <label for="email">Work email</label>
+              <input id="email" type="email" />
+            </div>
+            <div class="field">
+              <label for="password">Password</label>
+              <input id="password" type="password" />
+            </div>
+            <button class="btn btn-gold btn-lg" style="width: 100%">Sign in</button>
+          </div>
+          <p class="faint" style="margin-top: 14px">
+            Participants submitting a proof of payment do not sign in. Use the link the institute
+            sent you.
+          </p>
+        </div>
+      </main>
+    </div>
+
+    <!-- ===================== PARTICIPANT PORTAL ===================== -->
+    <h2 style="margin: 40px 24px 4px">Participant portal</h2>
+    <p class="faint" style="margin: 0 24px 16px">Mobile first: the form opens on the phone in a participant's hand.</p>
+    <div style="background: #f8fafc; padding-bottom: 40px">
+      <div class="portal">
+        <header class="portal-head">
+          <img class="brand-logo" src="../public/branding/msri-logo.png" alt="MSRI" width="58" height="58" />
+          <div class="crest">MSR Learning Institute</div>
+          <h1>Submit your proof of payment</h1>
+          <p>
+            Send the receipt from your bank once your payment has gone through. You will get a
+            reference number to keep.
+          </p>
+        </header>
+        <main class="portal-body">
+          <form class="card">
+            <div class="field">
+              <label for="p_ref">Participant ID</label>
+              <input id="p_ref" type="text" placeholder="MSRI-001284" />
+              <p class="faint" style="margin-top: 4px; margin-bottom: 0">
+                On your registration letter, starting with MSRI.
+              </p>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="p_amount">Amount paid (R)</label>
+                <input id="p_amount" type="number" placeholder="500.00" />
+              </div>
+              <div class="field">
+                <label for="p_date">Date paid</label>
+                <input id="p_date" type="date" />
+              </div>
+            </div>
+            <div class="field">
+              <label>Proof of payment</label>
+              <div class="drop">
+                <div>PDF, JPG or PNG, up to 10 MB</div>
+                <input type="file" />
+              </div>
+            </div>
+            <button class="btn btn-gold btn-lg" type="button">Send proof of payment</button>
+            <p class="faint" style="margin-top: 12px; margin-bottom: 0">
+              Your document is stored privately and is seen only by the finance office.
+            </p>
+          </form>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
