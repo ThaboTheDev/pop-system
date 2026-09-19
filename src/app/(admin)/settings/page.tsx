@@ -1,79 +1,18 @@
 import { requireUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabase/server";
-import { formatNumber, humanise } from "@/lib/format";
-
-export const revalidate = 60;
+import { MFASettings } from "@/components/MFASettings";
+import { processNow, requeue } from "./actions";
 export const dynamic = "force-dynamic";
-
-export default async function SettingsPage() {
-  const user = await requireUser();
-  const sb = await supabaseServer();
-  const { count: queued } = await sb
-    .from("notifications").select("id", { count: "exact", head: true }).eq("state", "queued");
-
-  return (
-    <>
-      <div className="page-head">
-        <div>
-          <h1>Settings</h1>
-          <p>Your account and how this installation is configured.</p>
-        </div>
-      </div>
-
-      <div className="grid grid-2">
-        <div className="card">
-          <h2>Your account</h2>
-          <dl className="facts">
-            <div><dt>Name</dt><dd>{user.full_name}</dd></div>
-            <div><dt>Email</dt><dd>{user.email}</dd></div>
-            <div><dt>Role</dt><dd>{humanise(user.role)}</dd></div>
-          </dl>
-        </div>
-
-        <div className="card">
-          <h2>Notifications</h2>
-          <p className="faint">
-            Messages are written to an outbox rather than sent. Nothing leaves the system
-            until a delivery service is connected, so no participant is contacted by accident.
-          </p>
-          <dl className="facts">
-            <div><dt>Messages waiting</dt><dd>{formatNumber(queued ?? 0)}</dd></div>
-            <div><dt>Delivery service</dt><dd>Not connected</dd></div>
-          </dl>
-        </div>
-
-        <div className="card">
-          <h2>Document storage</h2>
-          <dl className="facts">
-            <div><dt>Bucket</dt><dd>{process.env.POP_BUCKET ?? "proof-of-payment"}</dd></div>
-            <div><dt>Visibility</dt><dd>Private</dd></div>
-            <div><dt>Accepted types</dt><dd>PDF, JPG, PNG</dd></div>
-            <div><dt>Size limit</dt><dd>10 MB</dd></div>
-            <div><dt>Link validity</dt><dd>{process.env.POP_SIGNED_URL_TTL ?? 5} minutes</dd></div>
-          </dl>
-        </div>
-
-        <div className="card">
-          <h2>Participant submission link</h2>
-          <p className="faint">Share this with participants. It needs no sign in.</p>
-          <p style={{ marginBottom: 0 }}><code>/submit</code></p>
-        </div>
-
-        <div className="card">
-          <h2>Account security</h2>
-          <p className="faint">
-            Super administrators should enable multi-factor authentication on their
-            Supabase Auth account (TOTP). Password-only sign-in is not enough for
-            a role that can verify payments and export every record.
-          </p>
-          {user.role === "super_admin" ? (
-            <p className="faint" style={{ marginBottom: 0 }}>
-              Turn MFA on in the Supabase dashboard under Authentication → Users
-              for this email, or from the user&apos;s own Auth settings.
-            </p>
-          ) : null}
-        </div>
-      </div>
-    </>
-  );
+export default async function Settings() {
+ const user = await requireUser(); const sb = await supabaseServer();
+ const states = await Promise.all(["queued", "processing", "failed", "skipped", "sent"].map(async state => {
+  const { count } = await sb.from("notifications").select("id", { count: "exact", head: true }).eq("state", state); return { state, count };
+ }));
+ const { data: last } = await sb.from("notifications").select("sent_at").eq("state", "sent").order("sent_at", { ascending: false }).limit(1).maybeSingle();
+ return <><h1>Settings</h1><div className="grid grid-2"><div className="card"><h2>{user.full_name}</h2><p>{user.email} — {user.role}</p><p><a href="/submit">Public submission</a> · <a href="/portal">Participant portal</a></p></div>
+ <div className="card"><h2>Notification delivery</h2><p>Resend: {process.env.RESEND_API_KEY && process.env.RESEND_FROM ? "Configured" : "Not configured"}</p><p>Email delivery only.</p>
+ {states.map(s => <p key={s.state}>{s.state}: {s.count ?? 0}</p>)}<p>Last sent: {last?.sent_at ?? "Never"}</p>
+ {user.role === "super_admin" && <><form action={processNow}><button className="btn">Process now (up to 25)</button></form><form action={requeue}><p>Requeue retries failed/skipped emails only. Review provider errors first.</p><button className="btn">Requeue failed and skipped emails</button></form></>}
+ <p>Processing rows after a worker crash require investigation before manual retry.</p></div><MFASettings/>
+ <div className="card"><h2>Document storage</h2><p>Private bucket: {process.env.POP_BUCKET ?? "proof-of-payment"}</p><p>PDF, JPG and PNG, 10 MB per document.</p></div></div></>;
 }

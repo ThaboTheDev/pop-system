@@ -14,6 +14,8 @@ export const currentUser = cache(async (): Promise<AppUser | null> => {
   const sb = await supabaseServer();
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return null;
+  const { data: assurance, error: assuranceError } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (assuranceError || (assurance?.nextLevel === "aal2" && assurance.currentLevel !== "aal2")) return null;
   const { data } = await sb.from("app_users").select("*").eq("id", user.id).single();
   if (!data || !data.is_active) return null;
   return data as AppUser;

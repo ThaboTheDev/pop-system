@@ -24,6 +24,15 @@ export async function GET(request: Request) {
   const type = sp.get("type") ?? "payments";
   const sb = await supabaseServer();
 
+  const operations: Record<string, string> = { arrears: "arrears_report", throughput: "admin_throughput", duplicates: "duplicate_report" };
+  if (Object.hasOwn(operations, type)) {
+    const { data, error } = await sb.rpc(operations[type]);
+    if (error) return new Response("Report failed", { status: 500 });
+    const rows = (data ?? []) as Record<string, unknown>[];
+    const head = Object.keys(rows[0] ?? {});
+    logAudit(user, "report.exported", "report", type, `Exported ${type} report`);
+    return csvResponse([head.join(","), ...rows.map(r => head.map(h => cell(r[h])).join(","))].join("\r\n"), type);
+  }
   if (type === "programme") {
     const { data } = await sb.rpc("programme_report", {
       p_from: sp.get("from"), p_to: sp.get("to"),

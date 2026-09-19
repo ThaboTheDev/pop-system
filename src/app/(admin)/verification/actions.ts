@@ -67,14 +67,42 @@ export async function addNote(formData: FormData) {
 /** Moves to the next waiting item so an administrator can work the queue
  *  without returning to the list between decisions. */
 export async function goToNext() {
-  await requireUser();
+  const user = await requireUser();
   const sb = await supabaseServer();
   const { data } = await sb
     .from("payments")
     .select("id")
-    .in("status", ["pending_review", "under_review"])
+    .in("status", ["pending_review", "under_review", "requires_clarification"])
+    .or(`claimed_by.is.null,claimed_by.eq.${user.id}`)
     .order("submitted_at", { ascending: true })
     .limit(1)
     .maybeSingle();
   redirect(data ? `/verification/${data.id}` : "/verification");
+}
+
+export async function claimPayment(form: FormData) {
+  const user = await requireUser(); if (!canVerify(user)) throw new Error("Forbidden");
+  const sb = await supabaseServer();
+  const { data, error } = await sb.rpc("claim_payment", { p_payment_id: String(form.get("payment_id")), p_release: form.get("release") === "1" });
+  if (error || !data) throw new Error(error?.message ?? "Payment is claimed by someone else or no longer open");
+  revalidatePath("/verification", "layout");
+}
+export async function mintPaymentLink(form: FormData) {
+  const user = await requireUser(); if (!canVerify(user)) throw new Error("Forbidden");
+  const sb = await supabaseServer();
+  const { data: p } = await sb.from("payments").select("id,participant_id").eq("id", String(form.get("payment_id"))).single();
+  if (!p) throw new Error("Payment not found");
+  const { mintResubmit } = await import("@/lib/resubmit");
+  await mintResubmit(p.id, p.participant_id); revalidatePath(`/verification/${p.id}`);
+}
+export async function bulkVerify(_state: { results: string[] }, form: FormData) {
+  const user = await requireUser(); if (!canVerify(user)) throw new Error("Forbidden");
+  const ids = [...new Set(form.getAll("payment_id").map(String))];
+  if (ids.length < 1 || ids.length > 50) return { results: ["Select 1–50 payments"] };
+  const results: string[] = [];
+  for (const id of ids) {
+    const input = new FormData(); input.set("payment_id", id); input.set("decision", "verified");
+    const result = await decidePayment(input); results.push(`${id}: ${result.error ?? "Verified"}`);
+  }
+  return { results };
 }

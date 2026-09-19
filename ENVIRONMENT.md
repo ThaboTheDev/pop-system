@@ -28,3 +28,27 @@ If the previous `.env.example` in your git history contained real credentials,
 rotate them in the Supabase dashboard immediately. Anything that has been
 pushed to a remote must be treated as compromised regardless of whether you
 rewrite history.
+
+## Operations layer (migration 0004)
+
+All variables below are **server-only**. Configure the same `APP_URL` in
+Supabase Auth's Site URL and allow `/login/reset` as a redirect URL.
+
+```dotenv
+APP_URL=https://payments.example.org
+ORG_NAME=MSR Learning Institute
+RESEND_API_KEY=your-resend-key
+RESEND_FROM=Finance <finance@your-verified-domain.example>
+CRON_SECRET=replace-with-a-long-random-secret
+PORTAL_SECRET=replace-with-at-least-32-random-characters
+```
+
+Generate secrets locally with `openssl rand -hex 32`. Rotating `PORTAL_SECRET`
+invalidates portal sessions and outstanding OTP hashes. Cookies last seven days;
+OTP codes expire in ten minutes. Development builds may display an issued OTP;
+production never does. Never run a development server as your public deployment.
+
+Resend requires a verified sending domain. Missing provider configuration causes
+outbox rows to be marked `skipped` with a reason. Email is the only delivery channel.
+Apply `0005_email_only.sql` to existing installations to disable legacy non-email
+queue entries. Remove any old Meta/WhatsApp credentials from your hosting environment.

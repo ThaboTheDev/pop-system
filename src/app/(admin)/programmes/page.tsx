@@ -1,8 +1,8 @@
+import { ProgrammeManagement } from "@/components/ProgrammeManagement";
 import { requireUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabase/server";
 import { formatMoney, formatNumber } from "@/lib/format";
 
-export const revalidate = 60;
 export const dynamic = "force-dynamic";
 
 export default async function ProgrammesPage() {
@@ -44,6 +44,7 @@ export default async function ProgrammesPage() {
           </table>
         </div>
       </div>
+      <ProgrammeManagement />
     </>
   );
 }

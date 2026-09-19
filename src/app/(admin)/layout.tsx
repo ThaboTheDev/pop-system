@@ -7,10 +7,6 @@ import { humanise } from "@/lib/format";
 import { NavLink } from "@/components/NavLink";
 import { QueueCount } from "@/components/QueueCount";
 
-// Sidebar queue count can be a few seconds stale without anyone noticing;
-// 15 s cuts a DB round-trip on every navigation while staying responsive.
-export const revalidate = 15;
-
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // Auth is the only thing the shell waits for: it decides the redirect, the
   // role-gated links and the footer, and React cache() shares its round-trip
@@ -40,6 +36,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             Verification
           </NavLink>
           <NavLink href="/programmes">Programmes</NavLink>
+          <NavLink href="/reconciliation">Reconciliation</NavLink>
+          <NavLink href="/adjustments">Adjustments</NavLink>
           <NavLink href="/reports">Reports</NavLink>
           <NavLink href="/import">Bulk import</NavLink>
           {canManageUsers(user) ? <NavLink href="/users">Users</NavLink> : null}

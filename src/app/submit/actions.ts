@@ -1,9 +1,10 @@
 "use server";
 
+import { validDate } from "@/lib/csv";
 import { headers } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { rateLimit } from "@/lib/rate-limit";
-import { validateUpload, sha256, storagePath, MAX_UPLOAD_BYTES } from "@/lib/upload";
+import { validateUpload, sha256, storagePath, sniffMime, MAX_UPLOAD_BYTES } from "@/lib/upload";
 
 export interface SubmitResult {
   ok?: boolean;
@@ -45,11 +46,14 @@ export async function submitPop(formData: FormData): Promise<SubmitResult> {
   const reference = String(formData.get("reference") ?? "").trim();
   const method = String(formData.get("method") ?? "eft");
   const bank = String(formData.get("bank") ?? "").trim();
-  const file = formData.get("proof");
+  if (formData.get("consent") !== "on") return { error: "Your POPIA consent is required." };
+  const files = formData.getAll("proof").filter((f): f is File => f instanceof File && f.size > 0);
+  if (files.length < 1 || files.length > 3) return { error: "Attach one to three files." };
+  const file = files[0];
 
   if (!participantRef) return { error: "Enter your participant ID, for example MSRI-001284." };
   if (!Number.isFinite(amount) || amount <= 0) return { error: "Enter the amount you paid." };
-  if (!paymentDate) return { error: "Enter the date the payment was made." };
+  if (!validDate(paymentDate)) return { error: "Enter the date the payment was made." };
   if (new Date(paymentDate) > new Date())
     return { error: "The payment date cannot be in the future." };
   if (!(file instanceof File) || file.size === 0)
@@ -74,39 +78,35 @@ export async function submitPop(formData: FormData): Promise<SubmitResult> {
   if (!participant)
     return { error: "That participant ID was not found. Check it against your registration letter." };
 
-  const paymentId = crypto.randomUUID();
-  const safeName = `proof-of-payment.${file.type === "application/pdf" ? "pdf" : file.type === "image/png" ? "png" : "jpg"}`;
-  const path = storagePath(participant.id, paymentId, safeName);
-
-  const { error: uploadError } = await sb.storage
-    .from(process.env.POP_BUCKET ?? "proof-of-payment")
-    .upload(path, bytes, { contentType: file.type, upsert: false });
-
-  if (uploadError) return { error: "The file could not be uploaded. Try again in a moment." };
-
-  const { data, error } = await sb.rpc("submit_payment", {
-    p_participant_ref: participantRef,
-    p_amount: amount,
-    p_payment_date: paymentDate,
-    p_reference: reference || null,
-    p_method: method,
-    p_bank: bank || null,
-    p_storage_path: path,
-    p_file_name: safeName,
-    p_mime_type: file.type,
-    p_file_size: file.size,
-    p_file_hash: sha256(bytes),
-    p_channel: "participant_portal",
-  });
-
-  if (error) {
-    // Do not leave an orphaned object behind if the record could not be written.
-    await sb.storage.from(process.env.POP_BUCKET ?? "proof-of-payment").remove([path]);
-    if (error.message.includes("PARTICIPANT_NOT_FOUND"))
-      return { error: "That participant ID was not found." };
-    return { error: "The submission could not be recorded. Try again in a moment." };
+  const documents = [];
+  for (const f of files) {
+    const b = new Uint8Array(await f.arrayBuffer());
+    const invalid = validateUpload(f, b);
+    if (invalid) return { error: invalid };
+    const mime = sniffMime(b)!;
+    const name = `proof.${mime === "application/pdf" ? "pdf" : mime === "image/png" ? "png" : "jpg"}`;
+    documents.push({ bytes: b, path: storagePath(participant.id, crypto.randomUUID(), name), name, mime, size: f.size, hash: sha256(b) });
   }
-
-  const result = data as { payment_ref: string; participant_name: string };
+  const stored: string[] = [];
+  const bucket = sb.storage.from(process.env.POP_BUCKET ?? "proof-of-payment");
+  let result: { payment_id: string; payment_ref: string; participant_name: string };
+  try {
+    for (const d of documents) {
+      const { error } = await bucket.upload(d.path, d.bytes, { contentType: d.mime });
+      if (error) throw new Error("Upload failed");
+      stored.push(d.path);
+    }
+    const { data, error } = await sb.rpc("submit_payment_documents", {
+      p_ref: participantRef, p_amount: amount, p_date: paymentDate, p_reference: reference || null,
+      p_method: method, p_bank: bank || null, p_consent: true,
+      p_documents: documents.map(({ bytes: _bytes, ...d }) => d),
+    });
+    if (error) throw new Error(error.message);
+    result = data;
+  } catch {
+    if (stored.length) await bucket.remove(stored);
+    return { error: "The submission could not be recorded. Please try again." };
+  }
+  // submit_payment_documents queues the receipt email atomically in Postgres.
   return { ok: true, reference: result.payment_ref, name: result.participant_name };
 }

@@ -1,3 +1,5 @@
+import { BulkVerification } from "@/components/BulkVerification";
+import { canVerify } from "@/lib/auth";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -12,7 +14,7 @@ const PAGE_SIZE = 25;
 export default async function VerificationQueue(
   { searchParams }: { searchParams: Promise<Record<string, string | undefined>> },
 ) {
-  await requireUser();
+  const user = await requireUser();
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page ?? 1));
   const sb = await supabaseServer();
@@ -21,13 +23,15 @@ export default async function VerificationQueue(
     ? [sp.status]
     : ["pending_review", "under_review", "requires_clarification"];
 
-  const { data, count } = await sb
+  let query = sb
     .from("payments")
     .select("id, payment_ref, amount, payment_date, submitted_at, status, duplicate_flag, duplicate_reason, reference, participants(id, full_name, participant_ref), programmes(name)",
             { count: "exact" })
     .in("status", statuses)
     .order("submitted_at", { ascending: true })
     .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+  if (sp.mine === "1") query = query.eq("claimed_by", user.id);
+  const { data, count } = await query;
 
   return (
     <>
@@ -47,10 +51,11 @@ export default async function VerificationQueue(
               <option value="duplicate">Marked duplicate</option>
             </select>
           </div>
-          <button className="btn" type="submit">Apply</button>
+          <label><input type="checkbox" name="mine" value="1" defaultChecked={sp.mine === "1"}/>My claims</label><button className="btn" type="submit">Apply</button>
         </form>
       </div>
 
+      {canVerify(user) && <BulkVerification payments={(data ?? []).map(p => ({ id: p.id, reference: p.payment_ref }))} />}
       <div className="card card-flush">
         <div className="table-wrap">
           <table className="data">

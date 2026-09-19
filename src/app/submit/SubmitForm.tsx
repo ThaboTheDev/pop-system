@@ -89,12 +89,14 @@ export function SubmitForm() {
       <div className="field">
         <label>Proof of payment</label>
         <div className="drop">
-          <div>{fileName ?? "PDF, JPG or PNG, up to 10 MB"}</div>
-          <input type="file" name="proof" required accept="application/pdf,image/jpeg,image/png"
+          <div>{fileName ?? "Up to 3 PDF, JPG or PNG files, 10 MB each"}</div>
+          <input type="file" name="proof" required multiple accept="application/pdf,image/jpeg,image/png"
                  onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)} />
         </div>
       </div>
 
+      <label><input type="checkbox" name="consent" required /> I consent to processing my personal information and documents for payment administration under POPIA.</label>
+      <p><a href="/portal">View my participant portal</a></p>
       <button className="btn btn-primary" type="submit" disabled={pending}>
         {pending ? "Sending" : "Send proof of payment"}
       </button>
