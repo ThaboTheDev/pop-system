@@ -1,25 +1,22 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { requireUser, canManageUsers } from "@/lib/auth";
-import { supabaseServer } from "@/lib/supabase/server";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { SignOut } from "@/components/SignOut";
 import { humanise } from "@/lib/format";
 import { NavLink } from "@/components/NavLink";
+import { QueueCount } from "@/components/QueueCount";
 
 // Sidebar queue count can be a few seconds stale without anyone noticing;
 // 15 s cuts a DB round-trip on every navigation while staying responsive.
 export const revalidate = 15;
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  // Auth is the only thing the shell waits for: it decides the redirect, the
+  // role-gated links and the footer, and React cache() shares its round-trip
+  // with the page. The verification queue count streams in via Suspense so a
+  // slow count query never holds the sidebar hostage on a tab switch.
   const user = await requireUser();
-  const sb = await supabaseServer();
-
-  // Queue size sits in the navigation because it is the one number that tells
-  // an administrator whether there is work waiting.
-  const { count: queue } = await sb
-    .from("payments")
-    .select("id", { count: "exact", head: true })
-    .in("status", ["pending_review", "under_review", "requires_clarification"]);
 
   return (
     <div className="shell">
@@ -32,7 +29,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <NavLink href="/dashboard">Dashboard</NavLink>
           <NavLink href="/participants">Participants</NavLink>
           <NavLink href="/payments">Payments</NavLink>
-          <NavLink href="/verification" count={queue ?? 0}>Verification</NavLink>
+          <NavLink
+            href="/verification"
+            count={
+              <Suspense fallback={null}>
+                <QueueCount />
+              </Suspense>
+            }
+          >
+            Verification
+          </NavLink>
           <NavLink href="/programmes">Programmes</NavLink>
           <NavLink href="/reports">Reports</NavLink>
           <NavLink href="/import">Bulk import</NavLink>
