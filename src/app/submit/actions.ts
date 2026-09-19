@@ -19,6 +19,23 @@ export interface SubmitResult {
 export async function submitPop(formData: FormData): Promise<SubmitResult> {
   const h = await headers();
   const ip = (h.get("x-forwarded-for") ?? "unknown").split(",")[0].trim();
+
+  // Origin / host check: reject requests that didn't come through our own
+  // form. This pairs with Next's built-in Server Action origin check to
+  // reduce cross-site abuse of the public endpoint.
+  const origin = h.get("origin");
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  if (origin && host) {
+    try {
+      const originHost = new URL(origin).host;
+      if (originHost !== host) {
+        return { error: "Request origin was not recognised." };
+      }
+    } catch {
+      return { error: "Request origin was not recognised." };
+    }
+  }
+
   if (!rateLimit(`pop:${ip}`, 8, 60_000).allowed)
     return { error: "Too many submissions from this device. Wait a minute and try again." };
 

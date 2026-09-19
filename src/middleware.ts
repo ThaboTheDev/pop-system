@@ -7,6 +7,10 @@ type CookieItem = { name: string; value: string; options?: CookieOptions };
  *  of the admin area. Page-level guards still run: this is the outer gate,
  *  not the only one. */
 export async function middleware(request: NextRequest) {
+  // Build a single response up front and apply cookies to it rather than
+  // reassigning the response inside the setAll callback (which previously
+  // constructed a new NextResponse for every cookie and could drop earlier
+  // cookies, triggering spurious re-auth and extra round trips).
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -16,32 +20,42 @@ export async function middleware(request: NextRequest) {
       cookies: {
         getAll: () => request.cookies.getAll(),
         setAll: (items: CookieItem[]) => {
-          items.forEach(({ name, value }: CookieItem) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
-          items.forEach(({ name, value, options }: CookieItem) =>
-            response.cookies.set(name, value, options));
+          items.forEach(({ name, value, options }) => {
+            // Keep request cookies in sync so later reads in this request
+            // see the refreshed values, and mirror onto the outgoing response.
+            request.cookies.set(name, value);
+            response.cookies.set(name, value, options);
+          });
         },
       },
     },
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // API routes authenticate themselves; the extra getUser() here adds a
+  // round-trip to Supabase on every /api call for no protection benefit.
   const path = request.nextUrl.pathname;
-  const isPublic =
-    path === "/" || path.startsWith("/login") || path.startsWith("/submit");
+  const isApi = path.startsWith("/api/");
+  const isStatic = path.startsWith("/_next/") || path.startsWith("/favicon.");
 
-  if (!user && !isPublic) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", path);
-    return NextResponse.redirect(url);
+  if (!isApi && !isStatic) {
+    const { data: { user } } = await supabase.auth.getUser();
+    const isPublic =
+      path === "/" || path.startsWith("/login") || path.startsWith("/submit");
+
+    if (!user && !isPublic) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("next", path);
+      return NextResponse.redirect(url);
+    }
+    if (user && path.startsWith("/login")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
   }
-  if (user && path.startsWith("/login")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    url.search = "";
-    return NextResponse.redirect(url);
-  }
+
   return response;
 }
 

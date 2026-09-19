@@ -168,8 +168,14 @@ Beyond that, in the order the pressure actually arrives:
    makes retention a partition drop rather than a mass delete.
 4. **Read replica** for reports and exports, so a large export cannot slow down
    the verification queue.
-5. **Connection pooling.** Use Supabase's pooler endpoint for serverless
-   functions; direct connections exhaust Postgres slots under load.
+5. **Connection pooling (do this BEFORE launch on Vercel).** The DATABASE_URL
+   used for migrations can be the direct Postgres URL, but for serverless
+   runtimes point any server-side Postgres usage (migrations at scale, Edge
+   Functions, scripts) at Supabase's **transaction pooler** on port 6543 with
+   `?pgbouncer=true`. Direct connections exhaust Postgres slots under load.
+   The Supabase JS client over HTTPS (which is what this app uses) is not
+   affected — this applies only to raw `psql` connections. Configure the
+   pooler in your Supabase project Settings → Database → Connection pooling.
 6. **Move exports to a background job** writing to storage, with a link emailed
    when ready, once exports regularly exceed 100 000 rows.
 7. **Storage lifecycle.** At 20 000 participants and three PoPs each, expect

@@ -13,17 +13,36 @@ export function GlobalSearch() {
   const [hits, setHits] = useState<Hit | null>(null);
   const [busy, setBusy] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (q.trim().length < 2) { setHits(null); return; }
+    const term = q.trim();
+    if (term.length < 2) { setHits(null); return; }
+
+    // Cancel a previous in-flight search so responses can't arrive out of order
+    // and so every keystroke doesn't leave a dangling request to Supabase.
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
     const t = setTimeout(async () => {
       setBusy(true);
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
-        setHits(res.ok ? await res.json() : null);
-      } finally { setBusy(false); }
+        const res = await fetch(`/api/search?q=${encodeURIComponent(term)}`, {
+          signal: ctrl.signal,
+        });
+        if (!ctrl.signal.aborted && res.ok) setHits(await res.json());
+      } catch {
+        // AbortError is expected; network failures clear stale results.
+        if (!ctrl.signal.aborted) setHits(null);
+      } finally {
+        if (!ctrl.signal.aborted) setBusy(false);
+      }
     }, 180);
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
   }, [q]);
 
   useEffect(() => {
@@ -47,7 +66,7 @@ export function GlobalSearch() {
       />
       {hits ? (
         <div className="results">
-          {busy ? <div className="group">Searching</div> : null}
+          {busy ? <div className="group">Searching…</div> : null}
           {hits.participants.length ? <div className="group">Participants</div> : null}
           {hits.participants.map((p) => (
             <Link key={p.id} href={`/participants/${p.id}`} onClick={() => setHits(null)}>

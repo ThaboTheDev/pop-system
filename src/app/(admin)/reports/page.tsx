@@ -4,6 +4,7 @@ import { formatMoney, formatNumber, formatDate } from "@/lib/format";
 import type { DashboardStats } from "@/lib/types";
 import { humanise } from "@/lib/format";
 
+export const revalidate = 60;
 export const dynamic = "force-dynamic";
 
 export default async function ReportsPage(

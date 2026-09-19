@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabase/server";
 import { formatNumber, humanise } from "@/lib/format";
 
+export const revalidate = 60;
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
@@ -56,6 +57,21 @@ export default async function SettingsPage() {
           <h2>Participant submission link</h2>
           <p className="faint">Share this with participants. It needs no sign in.</p>
           <p style={{ marginBottom: 0 }}><code>/submit</code></p>
+        </div>
+
+        <div className="card">
+          <h2>Account security</h2>
+          <p className="faint">
+            Super administrators should enable multi-factor authentication on their
+            Supabase Auth account (TOTP). Password-only sign-in is not enough for
+            a role that can verify payments and export every record.
+          </p>
+          {user.role === "super_admin" ? (
+            <p className="faint" style={{ marginBottom: 0 }}>
+              Turn MFA on in the Supabase dashboard under Authentication → Users
+              for this email, or from the user&apos;s own Auth settings.
+            </p>
+          ) : null}
         </div>
       </div>
     </>
