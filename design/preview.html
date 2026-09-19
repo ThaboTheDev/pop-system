@@ -19,6 +19,8 @@
          Re-run that script after changing the stylesheet. -->
       <!-- Inlined by scripts/inline-preview-css.mjs from src/app/globals.css.
          Re-run that script after changing the stylesheet. -->
+      <!-- Inlined by scripts/inline-preview-css.mjs from src/app/globals.css.
+         Re-run that script after changing the stylesheet. -->
     <style data-inlined="globals.css">
 /* =====================================================================
    Design tokens — the MSRI visual language.
@@ -491,6 +493,28 @@ textarea { min-height: 84px; resize: vertical; }
 label { display: block; font-size: 0.8125rem; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
 .field { margin-bottom: 15px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+input[type=checkbox], input[type=radio] {
+  width: auto;
+  accent-color: var(--navy);
+  margin: 0;
+  flex: none;
+}
+
+/* A checkbox with its label on one line: consent on the public form, account
+   flags and programme scope on the administrators page. The plain `label`
+   treatment (block, bold navy) would stack the box above its own text. */
+.consent { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 8px; }
+.consent input[type=checkbox] { margin-top: 3px; }
+.consent label { margin: 0; font-weight: 500; color: var(--ink-soft); }
+
+fieldset {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin: 0 0 15px;
+}
+legend { padding: 0 6px; font-size: 0.8125rem; font-weight: 700; color: var(--navy); }
 
 /* Filter bars read as one raised strip, like the institute's pill toolbar. */
 .filters {
