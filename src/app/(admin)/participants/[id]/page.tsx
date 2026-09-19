@@ -30,7 +30,7 @@ export default async function ParticipantProfile(
     .eq("participant_id", id)
     .order("payment_date", { ascending: false });
 
-  await logAudit(user, "participant.viewed", "participant", id,
+  logAudit(user, "participant.viewed", "participant", id,
     `Opened profile ${person.participant_ref}`);
 
   const programme = person.programmes as unknown as { name: string; code: string } | null;

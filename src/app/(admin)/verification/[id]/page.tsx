@@ -37,8 +37,9 @@ export default async function VerifyPayment({ params }: { params: Promise<{ id: 
     { id: string; file_name: string; mime_type: string; file_size: number }[];
   const doc = pops[0];
 
-  // Opening a proof of payment is itself an auditable event.
-  await logAudit(user, "pop.viewed", "payment", id,
+  // Opening a proof of payment is itself an auditable event. Fire-and-forget
+  // so the document and metadata start streaming without waiting on the insert.
+  logAudit(user, "pop.viewed", "payment", id,
     `Opened ${payment.payment_ref} for ${person?.participant_ref}`);
 
   return (

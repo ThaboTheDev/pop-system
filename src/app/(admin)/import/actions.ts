@@ -120,16 +120,20 @@ export async function validateImport(formData: FormData): Promise<ImportReport> 
   }
 
   // Anyone already on the system, matched on the email address.
-  const emails = report.valid.map((r) => r.email).filter(Boolean);
+  // Build an email -> line index up front so dedup is O(n) not O(n^2).
+  const lineByEmail = new Map<string, number>();
+  for (const r of report.valid) if (r.email) lineByEmail.set(r.email, r.line);
+
+  const emails = [...lineByEmail.keys()];
   for (let i = 0; i < emails.length; i += 500) {
     const { data: existing } = await sb
       .from("participants").select("email, participant_ref")
       .in("email", emails.slice(i, i + 500));
     for (const e of existing ?? []) {
-      const row = report.valid.find((r) => r.email === e.email);
-      if (row) {
+      const line = lineByEmail.get(e.email);
+      if (line !== undefined) {
         report.duplicates.push({
-          line: row.line, participant_ref: e.participant_ref,
+          line, participant_ref: e.participant_ref,
           problem: "email already registered",
         });
       }

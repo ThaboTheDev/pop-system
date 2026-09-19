@@ -6,6 +6,10 @@ import { SignOut } from "@/components/SignOut";
 import { humanise } from "@/lib/format";
 import { NavLink } from "@/components/NavLink";
 
+// Sidebar queue count can be a few seconds stale without anyone noticing;
+// 15 s cuts a DB round-trip on every navigation while staying responsive.
+export const revalidate = 15;
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const sb = await supabaseServer();

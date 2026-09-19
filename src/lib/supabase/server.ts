@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { CookieOptions } from "@supabase/ssr";
@@ -5,8 +6,12 @@ import type { CookieOptions } from "@supabase/ssr";
 type CookieItem = { name: string; value: string; options?: CookieOptions };
 
 /** Request-scoped client carrying the signed-in administrator's session.
- *  Every query it makes is subject to row level security. */
-export async function supabaseServer() {
+ *  Every query it makes is subject to row level security.
+ *
+ *  Wrapped in React cache() so callers (middleware excepted — it doesn't have
+ *  React context) all share one client per request, which also means the
+ *  cookie jar is read exactly once rather than re-read on every query site. */
+export const supabaseServer = cache(async () => {
   const cookieStore = await cookies();
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,4 +30,4 @@ export async function supabaseServer() {
       },
     },
   );
-}
+});

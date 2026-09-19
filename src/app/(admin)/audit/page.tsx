@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber, humanise } from "@/lib/format";
 import { Pager } from "@/components/Pager";
 
+export const revalidate = 30;
 export const dynamic = "force-dynamic";
 const PAGE_SIZE = 50;
 

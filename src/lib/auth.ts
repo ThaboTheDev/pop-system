@@ -1,16 +1,23 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "./supabase/server";
 import type { AppUser, UserRole } from "./types";
 
-/** The signed-in administrator, or null. */
-export async function currentUser(): Promise<AppUser | null> {
+/** The signed-in administrator, or null.
+ *
+ *  Wrapped in React `cache()` so all calls within a single request share one
+ *  `auth.getUser()` round-trip and one `app_users` lookup. Without this the
+ *  middleware, layout and page each fire their own trip to Supabase for the
+ *  same user record, which is the single biggest contributor to perceived
+ *  latency on every admin page. */
+export const currentUser = cache(async (): Promise<AppUser | null> => {
   const sb = await supabaseServer();
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return null;
   const { data } = await sb.from("app_users").select("*").eq("id", user.id).single();
   if (!data || !data.is_active) return null;
   return data as AppUser;
-}
+});
 
 /** Guards a page. Sends anyone without an active administrator record to the
  *  sign-in screen rather than showing an empty dashboard. */

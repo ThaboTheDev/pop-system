@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     const head = ["programme", "code", "participants", "pops_submitted",
                   "verified_payments", "pending_payments", "total_verified", "outstanding"];
     const csv = [head.join(","), ...rows.map((r) => head.map((h) => cell(r[h])).join(","))].join("\r\n");
-    await logAudit(user, "report.exported", "report", "programme", "Exported programme report");
+    logAudit(user, "report.exported", "report", "programme", "Exported programme report");
     return csvResponse(csv, "programme-report");
   }
 
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
     },
   });
 
-  await logAudit(user, "records.exported", type, null,
+  logAudit(user, "records.exported", type, null,
     `Exported ${type} with filters ${sp.toString() || "none"}`);
 
   return new Response(stream, {

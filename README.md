@@ -138,7 +138,8 @@ pop-system/
 ```bash
 git clone <your-repo> && cd pop-system
 npm install
-cp .env.example .env.local     # fill in the values below
+# Create .env.local from the template in ENVIRONMENT.md and fill in your
+# Supabase project values.
 ```
 
 Apply the schema, in order:
@@ -171,9 +172,9 @@ The participant form is at `/submit` and needs no sign in.
 | Variable | Used by | Notes |
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | browser and server | Project URL. |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | browser and server | Safe to expose; RLS governs it. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | browser and server | Safe to expose; RLS governs it. (Previously misnamed `…_PUBLISHABLE_KEY` in an older template.) |
 | `SUPABASE_SERVICE_ROLE_KEY` | server only | Bypasses RLS. Never expose, never commit. |
-| `DATABASE_URL` | migrations and seeding only | Not needed at runtime. |
+| `DATABASE_URL` | migrations and seeding only | In production use the Supabase **transaction pooler** (port 6543, `?pgbouncer=true`) to avoid exhausting DB connections under serverless load. |
 | `POP_BUCKET` | server | Defaults to `proof-of-payment`. |
 | `POP_SIGNED_URL_TTL` | server | Minutes a signed link lives. Default 5. |
 

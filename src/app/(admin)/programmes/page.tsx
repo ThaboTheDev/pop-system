@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabase/server";
 import { formatMoney, formatNumber } from "@/lib/format";
 
+export const revalidate = 60;
 export const dynamic = "force-dynamic";
 
 export default async function ProgrammesPage() {
