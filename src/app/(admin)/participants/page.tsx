@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { formatMoney, formatDate, formatNumber } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Pager } from "@/components/Pager";
+import { PageHead } from "@/components/PageHead";
 
 export const dynamic = "force-dynamic";
 const PAGE_SIZE = 25;
@@ -42,17 +43,17 @@ export default async function ParticipantsPage(
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>Participants</h1>
-          <p>{formatNumber(count ?? 0)} records match the current filters.</p>
-        </div>
+      <PageHead
+        eyebrow="Participant registry"
+        title="Participants"
+        sub={`${formatNumber(count ?? 0)} records match the current filters.`}
+      >
         {canExport(user) ? (
           <a className="btn" href={`/api/export?type=participants&${new URLSearchParams(
             Object.entries(sp).filter(([, v]) => v) as [string, string][],
           )}`}>Export CSV</a>
         ) : null}
-      </div>
+      </PageHead>
 
       <form className="filters" action="/participants">
         <div className="field grow">

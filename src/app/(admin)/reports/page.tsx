@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { formatMoney, formatNumber, formatDate } from "@/lib/format";
 import type { DashboardStats } from "@/lib/types";
 import { humanise } from "@/lib/format";
+import { PageHead } from "@/components/PageHead";
 
 export const dynamic = "force-dynamic";
 
@@ -29,13 +30,13 @@ export default async function ReportsPage(
 
   return (
     <>
+      <PageHead
+        eyebrow="Finance"
+        title="Reports"
+        sub="Figures reflect verified payments unless a column says otherwise."
+      />
+
       <OperationsReports />
-      <div className="page-head">
-        <div>
-          <h1>Reports</h1>
-          <p>Figures reflect verified payments unless a column says otherwise.</p>
-        </div>
-      </div>
 
       <form className="filters" action="/reports">
         <div className="field"><label htmlFor="from">From</label>

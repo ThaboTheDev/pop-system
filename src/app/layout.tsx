@@ -8,6 +8,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+// Tints the mobile browser chrome with the brand navy.
+export const viewport = { themeColor: "#0b113b" };
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en-ZA">

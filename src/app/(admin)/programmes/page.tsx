@@ -2,6 +2,7 @@ import { ProgrammeManagement } from "@/components/ProgrammeManagement";
 import { requireUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabase/server";
 import { formatMoney, formatNumber } from "@/lib/format";
+import { PageHead } from "@/components/PageHead";
 
 export const dynamic = "force-dynamic";
 
@@ -12,12 +13,11 @@ export default async function ProgrammesPage() {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>Programmes</h1>
-          <p>Each programme carries its own fee, which becomes the amount due for participants imported against it.</p>
-        </div>
-      </div>
+      <PageHead
+        eyebrow="Academics"
+        title="Programmes"
+        sub="Each programme carries its own fee, which becomes the amount due for participants imported against it."
+      />
       <div className="card card-flush">
         <div className="table-wrap">
           <table className="data">

@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber, humanise } from "@/lib/format";
 import { Pager } from "@/components/Pager";
+import { PageHead } from "@/components/PageHead";
 
 export const dynamic = "force-dynamic";
 const PAGE_SIZE = 50;
@@ -26,12 +27,11 @@ export default async function AuditPage(
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>Audit log</h1>
-          <p>{formatNumber(count ?? 0)} entries. The log is append only and cannot be edited by anyone, including a super administrator.</p>
-        </div>
-      </div>
+      <PageHead
+        eyebrow="Governance"
+        title="Audit log"
+        sub={`${formatNumber(count ?? 0)} entries. The log is append only and cannot be edited by anyone, including a super administrator.`}
+      />
 
       <form className="filters" action="/audit">
         <div className="field grow">

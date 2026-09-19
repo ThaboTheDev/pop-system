@@ -7,6 +7,7 @@ import { formatMoney, formatDate, formatDateTime, humanise, fileSize } from "@/l
 import { StatusBadge } from "@/components/StatusBadge";
 import { logAudit } from "@/lib/audit";
 import { DecisionPanel } from "./DecisionPanel";
+import { PageHead } from "@/components/PageHead";
 
 export const dynamic = "force-dynamic";
 
@@ -45,17 +46,17 @@ export default async function VerifyPayment({ params }: { params: Promise<{ id: 
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <p className="faint" style={{ margin: 0 }}>
-            <Link href="/verification">Verification queue</Link>
-          </p>
-          <h1>{payment.payment_ref}</h1>
-          <p>Submitted {formatDateTime(payment.submitted_at)} · {humanise(payment.submitted_channel)}</p>
-        </div>
+      <PageHead
+        back={{ href: "/verification", label: "Verification queue" }}
+        eyebrow="Proof of payment"
+        title={payment.payment_ref}
+        sub={`Submitted ${formatDateTime(payment.submitted_at)} · ${humanise(payment.submitted_channel)}`}
+      >
         <StatusBadge status={payment.status} />
-        {payment.status === "verified" && <a href={`/api/receipts/${id}`}>Download receipt</a>}
-      </div>
+        {payment.status === "verified" ? (
+          <a className="btn btn-sm" href={`/api/receipts/${id}`}>Download receipt</a>
+        ) : null}
+      </PageHead>
 
       {canVerify(user) && <div className="card"><p>{payment.claimed_by ? (payment.claimed_by === user.id ? "Claimed by you" : "Claimed by another verifier") : "Unclaimed"}</p>
         <form action={claimPayment}><input type="hidden" name="payment_id" value={id}/><button className="btn" name="release" value={payment.claimed_by ? "1" : "0"}>{payment.claimed_by ? "Release claim" : "Claim payment"}</button></form>

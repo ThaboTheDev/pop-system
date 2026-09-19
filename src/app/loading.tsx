@@ -7,11 +7,13 @@ export default function Loading() {
     <div aria-live="polite" aria-busy="true" aria-label="Loading page">
       <div className="page-head">
         <div>
+          {/* eyebrow rule, title, supporting line — the shape of a page head */}
+          <div className="skel skel-line" style={{ width: 132, marginBottom: 12 }} />
           <div className="skel skel-title" />
-          <div className="skel skel-line" style={{ width: 280, marginTop: 8 }} />
+          <div className="skel skel-line" style={{ width: 280, marginTop: 10 }} />
         </div>
       </div>
-      <div className="grid grid-4" style={{ marginBottom: 14 }}>
+      <div className="grid grid-4" style={{ marginBottom: 16 }}>
         {[0, 1, 2, 3].map((i) => (
           <div className="stat" key={i} aria-hidden="true">
             <div className="skel skel-line" style={{ width: "55%" }} />

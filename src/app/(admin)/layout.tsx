@@ -6,6 +6,7 @@ import { SignOut } from "@/components/SignOut";
 import { humanise } from "@/lib/format";
 import { NavLink } from "@/components/NavLink";
 import { QueueCount } from "@/components/QueueCount";
+import { BrandMark } from "@/components/Brand";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // Auth is the only thing the shell waits for: it decides the redirect, the
@@ -17,10 +18,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="mark">
-          <strong>Payments and PoP</strong>
-          <span>MSR Learning Institute</span>
-        </div>
+        <BrandMark />
         <nav>
           <NavLink href="/dashboard">Dashboard</NavLink>
           <NavLink href="/participants">Participants</NavLink>
@@ -45,7 +43,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <NavLink href="/settings">Settings</NavLink>
         </nav>
         <div className="foot">
-          {user.full_name}
+          <strong>{user.full_name}</strong>
           <br />
           {humanise(user.role)}
         </div>

@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { formatMoney, formatDate, formatDateTime, formatNumber } from "@/lib/format";
 import { StatusBadge, DuplicateBadge } from "@/components/StatusBadge";
 import { Pager } from "@/components/Pager";
+import { PageHead } from "@/components/PageHead";
 
 export const dynamic = "force-dynamic";
 const PAGE_SIZE = 25;
@@ -46,15 +47,15 @@ export default async function PaymentsPage(
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>Payments</h1>
-          <p>{formatNumber(count ?? 0)} payment records match the current filters.</p>
-        </div>
+      <PageHead
+        eyebrow="Finance"
+        title="Payments"
+        sub={`${formatNumber(count ?? 0)} payment records match the current filters.`}
+      >
         {canExport(user) ? (
           <a className="btn" href={`/api/export?type=payments&${exportQs}`}>Export CSV</a>
         ) : null}
-      </div>
+      </PageHead>
 
       <form className="filters" action="/payments">
         <div className="field grow">

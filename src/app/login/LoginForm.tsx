@@ -58,11 +58,19 @@ export function LoginForm() {
                onChange={(e) => setPassword(e.target.value)}
                onKeyDown={(e) => e.key === "Enter" && submit()} />
       </div>
-      {factor && <label>Authenticator code<input value={code} onChange={e => setCode(e.target.value)} inputMode="numeric" autoComplete="one-time-code" /></label>}
-      <p><a href="/login/forgot">Forgot password?</a></p>
-      <button className="btn btn-primary" style={{ width: "100%" }} onClick={submit} disabled={busy}>
+      {factor ? (
+        <div className="field">
+          <label htmlFor="code">Authenticator code</label>
+          <input id="code" value={code} onChange={(e) => setCode(e.target.value)}
+                 inputMode="numeric" autoComplete="one-time-code" />
+        </div>
+      ) : null}
+      <button className="btn btn-gold btn-lg" style={{ width: "100%" }} onClick={submit} disabled={busy}>
         {busy ? "Signing in" : "Sign in"}
       </button>
+      <p className="faint" style={{ marginTop: 12, marginBottom: 0 }}>
+        <a href="/login/forgot">Forgot password?</a>
+      </p>
     </div>
   );
 }
