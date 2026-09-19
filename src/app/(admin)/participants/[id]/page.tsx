@@ -1,6 +1,7 @@
+import { ParticipantOperations } from "@/components/ParticipantOperations";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireUser } from "@/lib/auth";
+import { requireUser, canEditParticipants } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabase/server";
 import { formatMoney, formatDate, formatDateTime, humanise } from "@/lib/format";
 import { StatusBadge, DuplicateBadge } from "@/components/StatusBadge";
@@ -51,13 +52,14 @@ export default async function ParticipantProfile(
         </div>
         <div className="btn-row">
           <StatusBadge status={person.payment_status} />
+          {canEditParticipants(user) && <><Link className="btn" href={`/participants/${id}/edit`}>Edit</Link><Link className="btn" href={`/participants/${id}/record-payment`}>Record payment</Link></>}
         </div>
       </div>
 
       <div className="grid grid-4" style={{ marginBottom: 14 }}>
         <Stat label="Amount due" value={formatMoney(person.amount_due)} />
         <Stat label="Verified payments" value={formatMoney(person.amount_paid)}
-              foot="Verified proofs only" />
+              foot="Verified payments + approved adjustments" />
         <Stat label="Outstanding" value={formatMoney(person.outstanding)}
               variant={Number(person.outstanding) > 0 ? "flag" : undefined} />
         <Stat label="Proofs submitted" value={person.pop_count}
@@ -84,6 +86,7 @@ export default async function ParticipantProfile(
         </div>
       </div>
 
+      <ParticipantOperations id={id} user={user} outstanding={Number(person.outstanding)} />
       <div className="card card-flush">
         <h2>Payment history</h2>
         <div className="table-wrap">

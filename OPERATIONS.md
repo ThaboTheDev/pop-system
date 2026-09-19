@@ -45,7 +45,7 @@ The function signature does not change, so no page needs rewriting.
 
 ---
 
-## 2. Testing that was run
+## 2. Historical baseline testing (before operations layer)
 
 ```
 Migrations 0001, 0002, 0003          applied clean, first attempt
@@ -64,7 +64,7 @@ Unknown participant ID                 refused: PARTICIPANT_NOT_FOUND
 Edit the audit log                     refused: audit_logs is append-only
 Delete from the audit log              refused: audit_logs is append-only
 TypeScript                             tsc --noEmit clean
-Production build                       19 routes compiled, admin routes dynamic
+Production build                       baseline routes compiled, admin routes dynamic
 ```
 
 ### Re-running these
@@ -81,7 +81,7 @@ through `/verification` and confirm the participant profile figures move.
 
 ## 3. Deployment
 
-1. Create the Supabase project. Apply the three migrations in order, either with
+1. Create the Supabase project. Apply all five migrations (0001–0005) in order, either with
    `psql` or the SQL editor. `0003` creates the private storage bucket.
 2. Push to GitHub and import the repository into Vercel.
 3. Set the environment variables in Vercel. `SUPABASE_SERVICE_ROLE_KEY` goes in
@@ -108,8 +108,7 @@ anywhere it should not be, and redeploy.
 Two points that matter for a payments system. First, keep at least one copy
 outside the provider: a backup that can be deleted by the same credentials that
 can delete the data is not a backup. Second, restore to a scratch project once a
-quarter and confirm a participant's verified total matches the sum of their
-verified payments. An untested backup is an assumption.
+quarter and confirm a participant's paid total matches verified payments plus approved signed adjustments. An untested backup is an assumption.
 
 Retention: keep payment and audit records for at least five years, in line with
 the South African Revenue Service's requirement to retain records supporting a
@@ -144,12 +143,12 @@ Built in:
 - Parameterised queries throughout; no string-built SQL.
 - Security headers: HSTS, `X-Frame-Options: DENY`, `nosniff`, restrictive
   referrer and permissions policies.
-- The participant form gives the same message for an unknown ID as for a mistyped
-  one, so it cannot be used to discover which participant IDs exist.
+- Portal OTP requests have the same production response for matching and non-matching
+  registration details. Public submission errors are not an identity-verification mechanism.
 
-Worth adding before heavy use: two-factor authentication for finance
-administrators (Supabase supports TOTP), and moving the rate limiter into
-Postgres or Redis so it holds across multiple server instances rather than one.
+Enroll finance administrators in TOTP from Settings. Before heavy use, move the
+IP rate limiter to an edge service or Redis so it holds across server instances.
+OTP issuance and verification-attempt caps are already enforced in Postgres.
 
 ---
 
@@ -186,3 +185,100 @@ The thing not to do is denormalise participant details into `payments` to avoid
 joins. The joins are indexed and cost under 4 ms at this scale; duplicated
 participant data would cost correctness, which is the one thing a payments
 system cannot trade.
+
+## 7. Email delivery
+
+Verify the Resend sending domain before enabling the cron. Email is the only
+supported channel. `vercel.json` schedules `/api/notifications/process` every ten
+minutes; the hosting plan must support that frequency. Set `CRON_SECRET` so the
+scheduler sends `Authorization: Bearer <secret>`. GET and POST accept that
+credential or an active super-admin session. Each run processes up to 25 queued
+rows with at most ten concurrent sends. Settings provides process-now and retries
+for email rows only.
+
+| Email template | Payload fields |
+| --- | --- |
+| pop_received | payment_ref, amount |
+| payment_verified | payment_ref |
+| payment_rejected | payment_ref, reason |
+| clarification_requested | payment_ref, reason, url |
+| payment_reminder | participant_ref, amount, due_date |
+| adjustment_decided | amount, status, reason |
+| portal_otp | code |
+
+Submission, payment decision and adjustment emails are queued transactionally in
+Postgres. Reminders, portal codes and resubmit links use the email-only queue helper.
+Resend uses a per-outbox-row idempotency key. Claims are guarded
+`queued → processing` updates. A crash after provider acceptance may leave a row
+`processing`: investigate provider logs before retrying, including the provider's
+idempotency retention window. There is no automatic retry of ambiguous deliveries.
+
+Missing configuration/recipients are `skipped`; rejected or timed-out requests are
+`failed`; provider acceptance is `sent` (not proof of delivery). Fix configuration
+before requeueing. Do not requeue redacted/anonymized recipients. Portal OTP email
+must leave the queue well within its ten-minute lifetime; monitor backlog and
+increase scheduler capacity/frequency externally if necessary.
+
+### Upgrading an existing installation
+
+Pause any old delivery workers and deploy the email-only code with
+`0005_email_only.sql`. It replaces the adjustment notification function, marks
+unsent non-email records skipped, prevents non-email queueing, and preserves
+historical sent records. The old channel enum values remain only for compatibility.
+Remove old Meta/WhatsApp credentials from the hosting environment. Do not run old
+application instances alongside the email-only deployment.
+
+## 8. POPIA and retention
+
+Submission requires affirmative consent and records `participants.consent_at`.
+Provide your organization's privacy notice, lawful basis, retention schedule and
+information-officer contact before launch; the checkbox alone is not a compliance
+programme. Obtain/record messaging consent appropriate to your use of email.
+Limit provider access, keep audit history and approve deletion requests according
+to your legal retention obligations rather than deleting financial records blindly.
+
+Anonymization is super-admin-only with typed-reference confirmation. The application
+deletes private document bytes before redacting participant contact data, notes,
+payment references and queued message payloads. Financial and append-only audit
+history remain. Historical audit metadata and external provider records/backups
+may contain personal information and need a separate retention/access policy.
+Database and object storage are not one transaction: investigate failures and
+retry; avoid concurrent capture/resubmission while anonymizing a participant.
+
+Merge transfers payments, adjustments and plans into the target account; the target
+amount due and registration details win. Review both accounts before merging.
+Receipts require verified payments. Statement PDFs display the latest 40 payments,
+with a truncation notice, and balances include approved adjustments.
+
+## 9. Go-live checklist
+
+- Apply 0001–0005 in order; test on a scratch project and back up before production.
+- Run `npm ci`, `npm run typecheck`, `npm run build`, `npm run test:operations`.
+  The latter uses real temporary PostgreSQL with stub auth/storage, not live Supabase.
+- Configure APP_URL, secrets, sending domains, email sender and scheduler.
+- Allow `/login/reset` in Supabase Auth redirects. Test invite, password reset,
+  PKCE and fragment links, MFA enroll/challenge/unenroll, and last-super-admin guard.
+- Test role/programme isolation with real course-admin, viewer and finance accounts.
+- Test portal matching/non-matching requests, wrong/expired codes and five-attempt cap;
+  verify one participant cannot fetch another participant's receipt or statement.
+- Test all three upload paths, MIME/size rejection, single-use links and expired links.
+  Host ingress limits may be below Next's 32 MB setting; Vercel's function request
+  limits cannot be increased by this config. Use direct uploads or suitable hosting.
+- Exercise live storage deletion and inspect orphan cleanup after simulated failures.
+- Confirm pending payments/adjustments do not change paid totals; verified payments
+  and approved adjustments do. Bank matches and paid plan markers alone do not.
+- Review bank matching, ambiguous references, manual unmatch/reopen and credit balances.
+- Send test emails for every template; never use real participant
+  data in staging. Watch queue age, skipped/failed counts and stuck processing rows.
+- Document partial import retry procedure, retention policy and shared rate limiting.
+- Test database AND storage restores and compare rollups with underlying ledger rows.
+
+### Operations-layer automated checks
+
+`scripts/test-operations.mjs` applies all migrations and uses a light seed to exercise
+pending≠income, verification, clarification notification, claim release, pending and
+approved adjustments, overdue plans, attached documents, token/statement/OTP inserts,
+OTP attempt caps, single-use resubmission, merge, anonymization, reporting, append-only
+audit, rejection reason, concurrent claims, cent-exact plan generation, bank auto-matching,
+consent, super-admin guards and default-deny access. Live Auth, Storage and Resend
+are not emulated by these database tests and need the staging checks above.

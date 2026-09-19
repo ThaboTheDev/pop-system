@@ -20,7 +20,7 @@ export default async function PaymentsPage(
 
   let query = sb
     .from("payments")
-    .select("id, payment_ref, amount, payment_date, submitted_at, status, duplicate_flag, duplicate_reason, reference, verified_by, participants(id, full_name, participant_ref), programmes(name), app_users(full_name)",
+    .select("id, payment_ref, amount, payment_date, submitted_at, status, duplicate_flag, duplicate_reason, reference, verified_by, participants(id, full_name, participant_ref), programmes(name), app_users!payments_verified_by_fkey(full_name)",
             { count: "exact" });
 
   if (sp.q) {

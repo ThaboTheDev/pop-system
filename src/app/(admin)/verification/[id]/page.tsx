@@ -1,3 +1,4 @@
+import { claimPayment, mintPaymentLink } from "../actions";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser, canVerify } from "@/lib/auth";
@@ -16,7 +17,7 @@ export default async function VerifyPayment({ params }: { params: Promise<{ id: 
 
   const { data: payment } = await sb
     .from("payments")
-    .select("*, participants(*, programmes(name, code)), pops(*), app_users(full_name)")
+    .select("*, participants(*, programmes(name, code)), pops(*), app_users!payments_verified_by_fkey(full_name)")
     .eq("id", id)
     .maybeSingle();
 
@@ -53,8 +54,13 @@ export default async function VerifyPayment({ params }: { params: Promise<{ id: 
           <p>Submitted {formatDateTime(payment.submitted_at)} · {humanise(payment.submitted_channel)}</p>
         </div>
         <StatusBadge status={payment.status} />
+        {payment.status === "verified" && <a href={`/api/receipts/${id}`}>Download receipt</a>}
       </div>
 
+      {canVerify(user) && <div className="card"><p>{payment.claimed_by ? (payment.claimed_by === user.id ? "Claimed by you" : "Claimed by another verifier") : "Unclaimed"}</p>
+        <form action={claimPayment}><input type="hidden" name="payment_id" value={id}/><button className="btn" name="release" value={payment.claimed_by ? "1" : "0"}>{payment.claimed_by ? "Release claim" : "Claim payment"}</button></form>
+        {["rejected","requires_clarification"].includes(payment.status) && <form action={mintPaymentLink}><input type="hidden" name="payment_id" value={id}/><button className="btn">Email a 7-day resubmit link</button></form>}
+      </div>}
       {payment.duplicate_flag ? (
         <div className="notice notice-warn">
           <strong>Duplicate, review required.</strong> {payment.duplicate_reason}.
@@ -96,7 +102,7 @@ export default async function VerifyPayment({ params }: { params: Promise<{ id: 
               <div><dt>Method</dt><dd>{humanise(payment.method)}</dd></div>
               <div><dt>Bank</dt><dd>{payment.bank ?? "Not stated"}</dd></div>
               {payment.verified_at ? (
-                <div><dt>Verified</dt><dd>{formatDateTime(payment.verified_at)}</dd></div>
+                <div><dt>Verified</dt><dd>{formatDateTime(payment.verified_at)} by {(payment.app_users as unknown as { full_name: string } | null)?.full_name ?? "System"}</dd></div>
               ) : null}
               {payment.rejection_reason ? (
                 <div><dt>Rejected because</dt><dd>{payment.rejection_reason}</dd></div>
@@ -127,7 +133,7 @@ export default async function VerifyPayment({ params }: { params: Promise<{ id: 
                 </div>
                 {pops.length > 1 ? (
                   <p className="faint" style={{ marginTop: 8 }}>
-                    {pops.length} documents attached to this payment.
+                    {pops.map(f => <a key={f.id} href={`/api/pop/${f.id}`} target="_blank" rel="noreferrer">{f.file_name} </a>)}
                   </p>
                 ) : null}
               </>

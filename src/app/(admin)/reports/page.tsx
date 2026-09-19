@@ -1,10 +1,10 @@
+import { OperationsReports } from "@/components/OperationsReports";
 import { requireUser, canExport } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabase/server";
 import { formatMoney, formatNumber, formatDate } from "@/lib/format";
 import type { DashboardStats } from "@/lib/types";
 import { humanise } from "@/lib/format";
 
-export const revalidate = 60;
 export const dynamic = "force-dynamic";
 
 export default async function ReportsPage(
@@ -29,6 +29,7 @@ export default async function ReportsPage(
 
   return (
     <>
+      <OperationsReports />
       <div className="page-head">
         <div>
           <h1>Reports</h1>

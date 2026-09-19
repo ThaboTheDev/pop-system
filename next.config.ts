@@ -20,13 +20,11 @@ const csp = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  // Server Actions must accept up to MAX_UPLOAD_BYTES (10 MB) plus headroom
-  // for the rest of the form fields. Without this Vercel will truncate the
-  // body at ~4.5 MB (Pro) or 1 MB (Free) before the action sees it and the
-  // participant will get a platform error page instead of a friendly message.
+  // Three 10 MB documents plus multipart overhead. Hosting platforms can
+  // impose a lower request limit; this setting cannot override that limit.
   experimental: {
     serverActions: {
-      bodySizeLimit: "12mb",
+      bodySizeLimit: "32mb",
     },
     // Client-side router cache lifetimes. Revisiting an admin tab within the
     // dynamic window re-renders from cache instantly instead of refetching;

@@ -1,3 +1,4 @@
+import { OperationsImport } from "./OperationsImport";
 import { requireRole } from "@/lib/auth";
 import { ImportPanel } from "./ImportPanel";
 
@@ -13,6 +14,8 @@ export default async function ImportPage() {
           <p>Upload a CSV. Nothing is written until you have seen the check and confirmed it.</p>
         </div>
       </div>
+      <OperationsImport />
+      <h2>New participants</h2>
       <ImportPanel />
     </>
   );

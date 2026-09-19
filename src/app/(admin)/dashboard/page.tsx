@@ -10,7 +10,6 @@ import { StatusBadge } from "@/components/StatusBadge";
 
 // Revalidate every 30 seconds. Dashboard stats don't need millisecond freshness
 // and 30s is invisible to an administrator but dramatically cuts cache misses.
-export const revalidate = 30;
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage(

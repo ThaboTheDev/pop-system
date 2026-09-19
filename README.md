@@ -4,9 +4,10 @@ A participant payment and proof of payment administration platform for the
 MSR Learning Institute, built for 20 000 participants and tens of thousands of
 payment records.
 
-Everything in this repository has been built and run. The schema, the seed at
-full scale, the submit-to-verify workflow and the production build were all
-executed before delivery. Measured figures are in `OPERATIONS.md`.
+Migration and accounting smoke tests run on real embedded PostgreSQL; strict
+TypeScript and the Next.js production build are checked locally. Live Supabase
+Auth/Storage and provider delivery must still be exercised against your staging
+project before launch. Historical large-seed measurements are in `OPERATIONS.md`.
 
 ---
 
@@ -32,7 +33,7 @@ because the security boundary that matters here lives in the database.
 The most important design decision is that **the database is the enforcement
 point, not the application**.
 
-- `amount_paid` is recalculated by a trigger and counts verified payments only.
+- `amount_paid` is recalculated by a trigger and counts verified payments plus approved signed adjustments.
   A pending or rejected proof can never inflate income, whatever the UI does.
 - A rejection without a reason is rejected by `decide_payment()`, not by a form
   validator.
@@ -69,7 +70,10 @@ app_users ───── audit_logs
 | `pops` | Document metadata | Bytes live in Storage. `file_hash` is the sha256, used for duplicate detection. |
 | `payment_verifications` | Every status transition | Append-only history, separate from the audit log. |
 | `audit_logs` | Every significant action | Append-only, enforced by trigger. |
-| `notifications` | Outbox | Nothing is sent. A worker can be attached later. |
+| `notifications` | Email outbox | Guarded worker claims and delivery outcomes. |
+| `account_adjustments`, `payment_plans` | Account operations | Approved adjustments affect rollups; plans track instalments. |
+| `bank_statement_lines` | Reconciliation | Batches with matched, unmatched and ignored states. |
+| `portal_otps`, `resubmit_tokens` | Server-only access | Hashed codes/tokens, expiry and single-use state. |
 
 Participant information is stored once. Payments reference participants by
 foreign key; no name or email is copied across tables.
@@ -105,7 +109,9 @@ pop-system/
 │   ├── migrations/
 │   │   ├── 0001_schema.sql        tables, enums, generated columns, indexes
 │   │   ├── 0002_functions.sql     rollups, duplicates, stats, search, reports
-│   │   └── 0003_security.sql      RLS, role helpers, audit immutability, bucket
+│   │   ├── 0003_security.sql      RLS, role helpers, audit immutability, bucket
+│   │   ├── 0004_operations.sql    operations, claims, plans, tokens and reports
+│   │   └── 0005_email_only.sql    email-only delivery and legacy queue cleanup
 │   └── seed/seed.sql              20 000 participants, ~52 000 payments
 ├── scripts/create-admin.mjs       first administrator
 └── src/
@@ -115,11 +121,13 @@ pop-system/
     │   ├── auth.ts                requireUser, requireRole, capability checks
     │   ├── audit.ts               logging for views and exports
     │   ├── upload.ts              magic-number validation, hashing, paths
+    │   ├── notify.ts, portal.ts, resubmit.ts, pdf.ts
     │   ├── rate-limit.ts          public submission limiter
     │   ├── types.ts, format.ts
     ├── components/                StatusBadge, Stat, Pager, charts, search
     └── app/
         ├── login/                 administrator sign in
+        ├── portal/, clarify/[token]/  participant self-service
         ├── submit/                public participant PoP form (mobile first)
         ├── api/
         │   ├── pop/[popId]/       the only route to a stored document
@@ -128,7 +136,7 @@ pop-system/
         └── (admin)/
             ├── dashboard, participants/[id], payments,
             ├── verification/[id], programmes, reports,
-            └── import, users, audit, settings
+            └── import, users, audit, settings, adjustments, reconciliation
 ```
 
 ---
@@ -137,7 +145,7 @@ pop-system/
 
 ```bash
 git clone <your-repo> && cd pop-system
-npm install
+npm ci
 # Create .env.local from the template in ENVIRONMENT.md and fill in your
 # Supabase project values.
 ```
@@ -148,6 +156,8 @@ Apply the schema, in order:
 psql "$DATABASE_URL" -f supabase/migrations/0001_schema.sql
 psql "$DATABASE_URL" -f supabase/migrations/0002_functions.sql
 psql "$DATABASE_URL" -f supabase/migrations/0003_security.sql
+psql "$DATABASE_URL" -f supabase/migrations/0004_operations.sql
+psql "$DATABASE_URL" -f supabase/migrations/0005_email_only.sql
 ```
 
 Seed. The file defaults to 20 000 participants; change `v_participants` near the
@@ -165,7 +175,7 @@ node --env-file=.env.local scripts/create-admin.mjs \
 npm run dev
 ```
 
-The participant form is at `/submit` and needs no sign in.
+The participant form is at `/submit`; self-service is at `/portal`. Both are public entry points. Configure delivery before requesting portal codes.
 
 ### Environment variables
 
@@ -208,21 +218,52 @@ Dashboard, reports and exports reflect it immediately
 
 ---
 
-## 7. What is not built
+## 7. Operations layer and remaining scope
 
-Stated plainly so nothing is assumed:
+### Included
 
-- **Notification delivery.** Messages are written to the `notifications` outbox
-  with a state machine, and the settings page shows the queue. No email or SMS
-  provider is wired in, as the brief asked. Connecting one is a worker that
-  reads `state = 'queued'`.
-- **PDF export.** CSV export is built and streams. Reports print cleanly to PDF
-  from the browser. A server-side PDF renderer is not included.
-- **Participant self-service portal.** Participants submit; they cannot log in
-  to view history. Adding it means a magic-link route and a policy scoped to the
-  participant's own rows.
-- **Editing participants and programmes in the UI.** Creation happens through
-  bulk import; the schema, policies and audit hooks for in-UI editing are in
-  place but the forms are not.
-- **Role editing in the UI.** The users page lists administrators and explains
-  each role; roles are set with the bootstrap script.
+- Streaming queue badge, navigation progress, CSS content skeleton and short tab cache.
+- Resend email outbox, scheduled worker and operator retry.
+- Email OTP portal, signed seven-day cookies, single-use clarification upload links,
+  consent capture and up to three submission documents.
+- Signed adjustments, monthly payment plans and reminders, bank CSV reconciliation,
+  verified receipts and account statement PDFs (latest 40 payments).
+- Atomic verification claims, bulk decisions, all-document links, resubmit-link delivery.
+- Administrator invitations, role/scope management, reset emails; programme/cohort CRUD;
+  participant editing, staff capture, merge and anonymization.
+- New-participant import, update-existing import and payment batches; arrears,
+  throughput and duplicate reports with CSV exports.
+- In-app TOTP enrollment and sign-in challenge; password reset via PKCE or fragment session.
+
+### Not included / deployment caveats
+
+- **No SMS, accounting-system integration, or background exports.** CSV exports run
+  in the request. Bank reconciliation does not automatically verify income.
+- Provider acceptance is not proof of final delivery. There are no delivery webhook
+  receipts or automatic retry/backoff; investigate failed/skipped/processing rows.
+- Payment submission and decision emails are queued transactionally in Postgres.
+  Legacy non-email records are retained for history but cannot be requeued.
+- Imports commit row-by-row and report partial progress; payment batches must not be
+  blindly retried. Duplicate detection flags repeated submissions for review.
+- Public IP rate limiting is per process; use a shared edge/Redis limiter for production.
+- The 32 MB Server Action limit does not override your host's smaller request limit.
+  Use a host accepting that payload size or add a signed direct-upload flow before
+  promising 10 MB files on a platform with a smaller cap.
+- No live provider or browser end-to-end testing is implied by a clean build. Follow
+  the go-live checklist in `OPERATIONS.md`.
+
+### Verification
+
+```bash
+npm ci
+npm run typecheck
+npm run build
+npm run test:operations
+```
+
+The last command boots temporary real PostgreSQL via `embedded-postgres`, stubs
+Supabase auth/storage schemas and roles, applies 0001–0005 in transactions, seeds
+lightweight fixtures, and tests accounting and security invariants. It sends no messages.
+
+See `ENVIRONMENT.md` for APP_URL, ORG_NAME, RESEND_*, CRON_SECRET and
+PORTAL_SECRET configuration. Configure secrets in your host, never in Git.

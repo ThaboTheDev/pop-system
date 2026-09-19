@@ -29,9 +29,12 @@ function ProgressInner() {
       const href = anchor.getAttribute("href") ?? "";
       const target = anchor.getAttribute("target");
       if (target && target !== "_self") return;
-      if (!href.startsWith("/") || href.startsWith("//")) return;
-      // Same-page anchor jumps are not navigations.
-      if (href === pathname || href === `${pathname}${window.location.search}${window.location.hash}`) return;
+      if (anchor.hasAttribute("download")) return;
+      let destination: URL;
+      try { destination = new URL(href, window.location.href); } catch { return; }
+      if (destination.origin !== window.location.origin) return;
+      // Hash-only and current-page links never change pathname/searchParams.
+      if (destination.pathname === window.location.pathname && destination.search === window.location.search) return;
       setPending(true);
     };
     document.addEventListener("click", onClick, true);
