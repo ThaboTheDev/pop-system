@@ -7,12 +7,736 @@
     <!--
       A static reference for the redesigned interface.
 
-      It links the real stylesheet (src/app/globals.css) and reproduces the
-      markup the application renders, so the design can be reviewed without a
-      database connection — every admin screen needs Supabase to sign in.
+      It reproduces the markup the application renders so the design can be
+      reviewed without a database connection — every admin screen needs Supabase
+      to sign in. The stylesheet is inlined from src/app/globals.css by
+      scripts/inline-preview-css.mjs (`npm run preview:css`), so this file stays
+      a copy of the real rules rather than a second design.
+
       This file is not part of the application and is not shipped.
     -->
-    <link rel="stylesheet" href="../src/app/globals.css" />
+      <!-- Inlined by scripts/inline-preview-css.mjs from src/app/globals.css.
+         Re-run that script after changing the stylesheet. -->
+      <!-- Inlined by scripts/inline-preview-css.mjs from src/app/globals.css.
+         Re-run that script after changing the stylesheet. -->
+    <style data-inlined="globals.css">
+/* =====================================================================
+   Design tokens — the MSRI visual language.
+
+   The values below are taken from the institute's own stylesheet
+   (msri-website: assets/css/global.css and components.css) so this system
+   reads as part of the same institution:
+
+     navy #0b113b is structure — the sidebar, the band across the top of a
+     page, headings. Gold #cba65e is the single accent: the rule under a
+     section title, the primary action, the active tab. Everything else is
+     grey, so the two brand colours always mean something.
+
+   The palette is deliberately quiet. On a finance screen the only colours
+   that should attract the eye are the brand accent and payment state, so
+   status still owns green, amber, red and indigo.
+
+   Class names are unchanged from the previous stylesheet, so no page needs
+   to be touched to pick up the new look; the tokens are simply re-pointed
+   and each surface restyled.
+   ===================================================================== */
+:root {
+  /* Brand */
+  --navy: #0b113b;
+  --navy-light: #151e54;
+  --navy-deep: #070c2b;
+  --gold: #e9c176;
+  --gold-solid: #cba65e;
+  --gold-deep: #b08c42;
+  --gold-ink: #85651b; /* gold dark enough for text on white */
+  --indigo-wash: #e5e9f9;
+  --indigo: #4a54c1;
+
+  /* Surfaces and ink */
+  --ground: #ffffff;
+  --surface: #f8fafc;
+  --surface-sunken: #eef1f6;
+  --ink: #1e293b;
+  --ink-soft: #475569;
+  --ink-faint: #7c8aa0;
+  --line: #e8ecf3;
+  --line-strong: #d1d5db;
+
+  /* Aliases the markup and inline SVG already reference. --brand paints the
+     dashboard trend bars, so it must stay defined. */
+  --brand: var(--navy);
+  --brand-deep: var(--navy-deep);
+  --brand-wash: #eef2fb;
+
+  /* Payment state */
+  --ok: #1a7f4b;
+  --ok-wash: #e7f4ec;
+  --wait: #9a6510;
+  --wait-wash: #fdf3e0;
+  --stop: #a72f32;
+  --stop-wash: #fbebec;
+  --note: var(--indigo);
+  --note-wash: var(--indigo-wash);
+  --dupe: #6b3fa0;
+  --dupe-wash: #f3ecfa;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-lg: 16px;
+  --pill: 50px;
+  --shadow-card: 0 4px 15px rgba(11, 17, 59, 0.05);
+  --shadow-raise: 0 12px 25px rgba(11, 17, 59, 0.08);
+  --shadow-pop: 0 16px 40px rgba(11, 17, 59, 0.18);
+  --hero: linear-gradient(171deg, #0b113b 39%, #151e54 71%);
+  --ring: 0 0 0 3px rgba(203, 166, 94, 0.28);
+  --sans: Candara, Calibri, "Segoe UI", Optima, system-ui, -apple-system,
+    "Helvetica Neue", Arial, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 { margin: 0; font-weight: 700; color: var(--navy); line-height: 1.25; }
+h1 { font-size: 1.625rem; letter-spacing: -0.01em; }
+h2 { font-size: 1.0625rem; }
+h3 { font-size: 0.9375rem; }
+p { margin: 0 0 0.75rem; }
+a { color: var(--navy); text-decoration: none; font-weight: 600; }
+a:hover { color: var(--gold-ink); text-decoration: underline; }
+
+/* Gold instead of a browser-blue ring, but never removed: the ring is the
+   only cue for keyboard users. */
+:focus-visible {
+  outline: 2px solid var(--gold-deep);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--ink-soft); }
+.faint { color: var(--ink-faint); font-size: 0.8125rem; }
+.right { text-align: right; }
+.nowrap { white-space: nowrap; }
+
+/* MSRI's catalogue label: a short gold rule, then small uppercase wide-tracked
+   text. Used above a page title and inside the navy page band. */
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold-ink);
+}
+.eyebrow::before {
+  content: "";
+  width: 60px;
+  height: 1px;
+  background: var(--gold-solid);
+  flex: none;
+}
+
+/* ---------- application shell ---------- */
+.shell { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; }
+
+.sidebar {
+  background: var(--navy);
+  color: #cbd5e1;
+  padding: 18px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+/* The crest is navy on white, so it sits on a white plate rather than
+   floating on the navy field. */
+.mark {
+  padding: 0 18px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mark .brand-logo {
+  width: 46px;
+  height: 46px;
+  object-fit: contain;
+  background: var(--ground);
+  border-radius: 8px;
+  padding: 3px;
+  flex: none;
+}
+.mark strong { display: block; color: #fff; font-size: 0.9375rem; line-height: 1.25; }
+.mark span {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-top: 4px;
+}
+
+.sidebar nav { display: flex; flex-direction: column; padding: 0 10px; gap: 2px; }
+.sidebar nav a {
+  color: #cbd5e1;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border-left: 3px solid transparent;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+.sidebar nav a:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--gold);
+  text-decoration: none;
+}
+.sidebar nav a[aria-current="page"] {
+  background: rgba(233, 193, 118, 0.12);
+  border-left-color: var(--gold-solid);
+  color: #fff;
+}
+.sidebar .count {
+  background: var(--gold-solid);
+  color: var(--navy);
+  border-radius: var(--pill);
+  padding: 1px 8px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.sidebar .foot {
+  margin-top: auto;
+  padding: 16px 18px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.75rem;
+  color: #cbd5e1;
+}
+.sidebar .foot strong { color: #fff; }
+
+.main { display: flex; flex-direction: column; min-width: 0; }
+.topbar {
+  background: var(--ground);
+  border-bottom: 1px solid var(--line);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.content { padding: 24px 24px 64px; max-width: 1400px; width: 100%; }
+
+/* ---------- page heading ---------- */
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.page-head h1 { margin: 0; }
+.page-head p.sub { margin: 6px 0 0; color: var(--ink-soft); font-size: 0.875rem; max-width: 76ch; }
+.page-head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.back-link {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-ink);
+  margin-bottom: 6px;
+}
+.back-link:hover { color: var(--navy); }
+
+/* ---------- the navy page band (dashboard) ---------- */
+.hero-band {
+  background: var(--hero);
+  color: #fff;
+  border-radius: var(--radius-lg);
+  padding: 30px 32px 26px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-raise);
+}
+.hero-band .eyebrow { color: var(--gold); }
+.hero-band h1 { color: #fff; font-size: 2rem; margin-bottom: 10px; }
+.hero-lede { color: #cbd5e1; font-size: 0.9375rem; max-width: 62ch; margin: 0; }
+.hero-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+.hero-figures {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+.hero-figure .label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #cbd5e1;
+}
+.hero-figure .value {
+  font-size: 1.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--gold);
+  margin-top: 4px;
+  line-height: 1.15;
+}
+.hero-figure .value.sm { font-size: 1.5rem; }
+.hero-figure .foot { font-size: 0.75rem; color: #cbd5e1; margin-top: 2px; }
+
+/* ---------- cards and figures ---------- */
+.card {
+  background: var(--ground);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 18px;
+}
+/* Section titles carry the gold rule, as on the institute's own pages. */
+.card > h2 {
+  display: inline-block;
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+  border-bottom: 2px solid var(--gold-solid);
+}
+.card-flush { padding: 0; overflow: hidden; border-top: 4px solid var(--gold-solid); }
+.card-flush > h2 {
+  display: block;
+  padding: 16px 18px 14px;
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.grid { display: grid; gap: 16px; }
+.grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.stat {
+  background: var(--ground);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--navy-light);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 15px 17px;
+}
+.stat .label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.stat .value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--navy);
+  margin-top: 6px;
+  line-height: 1.15;
+}
+.stat .value.sm { font-size: 1.4375rem; }
+.stat .foot { font-size: 0.75rem; color: var(--ink-faint); margin-top: 4px; }
+.stat.flag { border-top-color: var(--wait); }
+.stat.alert { border-top-color: var(--stop); }
+
+/* ---------- tables ---------- */
+.table-wrap { overflow-x: auto; }
+table.data { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+table.data th {
+  text-align: left;
+  font-weight: 700;
+  font-size: 0.6875rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  background: var(--surface);
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+table.data td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+table.data tbody tr:last-child td { border-bottom: 0; }
+table.data tbody tr { transition: background 0.15s ease; }
+table.data tbody tr:hover { background: var(--surface); }
+table.data td.num, table.data th.num { text-align: right; font-variant-numeric: tabular-nums; }
+table.data td a { font-weight: 600; }
+.row-flagged { background: var(--wait-wash); }
+.row-flagged:hover { background: #fbeacf; }
+
+.empty { padding: 48px 20px; text-align: center; color: var(--ink-soft); }
+.empty strong { display: block; color: var(--navy); font-size: 1rem; margin-bottom: 4px; }
+
+/* ---------- badges ---------- */
+.badge {
+  display: inline-block;
+  padding: 4px 11px;
+  border-radius: var(--pill);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.badge-ok   { background: var(--ok-wash);     color: var(--ok);      border-color: #c4e4d2; }
+.badge-wait { background: var(--wait-wash);   color: var(--wait);    border-color: #eedcb8; }
+.badge-stop { background: var(--stop-wash);   color: var(--stop);    border-color: #f0cccd; }
+.badge-note { background: var(--note-wash);   color: var(--note);    border-color: #d3daf5; }
+.badge-idle { background: var(--surface-sunken); color: var(--ink-soft); border-color: var(--line-strong); }
+.badge-dupe { background: var(--dupe-wash);   color: var(--dupe);    border-color: #ddcdf0; }
+
+/* ---------- controls ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--ground);
+  color: var(--navy);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease,
+    transform 0.2s ease;
+}
+.btn:hover {
+  background: var(--surface);
+  border-color: var(--navy);
+  color: var(--navy);
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* Navy carries routine emphasis … */
+.btn-primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+.btn-primary:hover { background: var(--navy-light); border-color: var(--navy-light); color: #fff; }
+
+/* … gold is reserved for the one action a screen is really asking for,
+   exactly as the institute's own buttons do. */
+.btn-gold { background: var(--gold-solid); border-color: var(--gold-solid); color: var(--navy); }
+.btn-gold:hover { background: var(--gold); border-color: var(--gold-deep); color: var(--navy); }
+
+.btn-danger { background: var(--stop); border-color: var(--stop); color: #fff; }
+.btn-danger:hover { background: #8e2528; border-color: #8e2528; color: #fff; }
+
+/* On the navy band, where a white button would shout. */
+.btn-outline-light {
+  background: transparent;
+  border: 1.5px solid var(--gold);
+  color: #fff;
+}
+.btn-outline-light:hover { background: var(--gold); border-color: var(--gold); color: var(--navy); }
+
+.btn-sm { padding: 5px 11px; font-size: 0.8125rem; }
+.btn-lg { padding: 14px 24px; font-size: 1rem; border-radius: 8px; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+input[type=text], input[type=email], input[type=password], input[type=date],
+input[type=number], input[type=search], input[type=tel], input[type=file],
+select, textarea {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 0.9375rem;
+  background: var(--surface);
+  color: var(--ink);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+/* The focus treatment is lifted from the institute's application form. */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--gold-solid);
+  background: var(--ground);
+  box-shadow: var(--ring);
+}
+textarea { min-height: 84px; resize: vertical; }
+label { display: block; font-size: 0.8125rem; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
+.field { margin-bottom: 15px; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+/* Filter bars read as one raised strip, like the institute's pill toolbar. */
+.filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 16px;
+  background: var(--ground);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 14px 16px;
+}
+.filters .field { margin: 0; min-width: 150px; }
+.filters .grow { flex: 1; min-width: 220px; }
+
+/* ---------- search ---------- */
+.searchbox { position: relative; flex: 1; max-width: 620px; }
+.searchbox input[type=search] { border-radius: var(--pill); padding-left: 18px; }
+.results {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0; right: 0;
+  background: var(--ground);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-pop);
+  max-height: 60vh;
+  overflow-y: auto;
+  z-index: 40;
+}
+.results .group {
+  padding: 8px 14px 4px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.results a { display: block; padding: 10px 14px; border-bottom: 1px solid var(--line); color: var(--ink); font-weight: 600; }
+.results a:hover { background: var(--brand-wash); color: var(--navy); text-decoration: none; }
+.results .meta { font-size: 0.75rem; color: var(--ink-soft); font-weight: 400; }
+
+/* ---------- verification workspace ---------- */
+.verify-grid { display: grid; grid-template-columns: 330px 1fr; gap: 16px; align-items: start; }
+.doc-frame {
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  height: 640px;
+  width: 100%;
+}
+.doc-frame iframe, .doc-frame img { width: 100%; height: 100%; border: 0; display: block; object-fit: contain; }
+
+dl.facts { margin: 0; display: grid; grid-template-columns: 1fr; gap: 10px; }
+dl.facts div { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+dl.facts dt { color: var(--ink-soft); font-size: 0.8125rem; }
+dl.facts dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+
+.notice {
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 0.875rem;
+  margin-bottom: 16px;
+  border: 1px solid;
+  border-left-width: 4px;
+}
+.notice-warn { background: var(--wait-wash); border-color: #eedcb8; border-left-color: var(--wait); color: #6d4808; }
+.notice-error { background: var(--stop-wash); border-color: #f0cccd; border-left-color: var(--stop); color: #7d2225; }
+.notice-ok { background: var(--ok-wash); border-color: #c4e4d2; border-left-color: var(--ok); color: #12603a; }
+.notice-info { background: var(--note-wash); border-color: #d3daf5; border-left-color: var(--note); color: #2f3a86; }
+
+.pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+.pager .btn-row { gap: 6px; }
+
+/* ---------- charts ---------- */
+.bars { display: flex; flex-direction: column; gap: 10px; }
+.bar-row { display: grid; grid-template-columns: 138px 1fr 78px; gap: 10px; align-items: center; font-size: 0.8125rem; }
+.bar-track { background: var(--surface-sunken); border-radius: var(--pill); height: 9px; overflow: hidden; }
+.bar-fill { height: 100%; background: var(--brand); border-radius: var(--pill); }
+.bar-row .right { font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+
+/* ---------- participant submission portal ---------- */
+.portal { padding-bottom: 64px; }
+.portal-head {
+  background: var(--hero);
+  color: #fff;
+  text-align: center;
+  padding: 34px 20px 52px;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.portal-head .brand-logo {
+  width: 58px;
+  height: 58px;
+  object-fit: contain;
+  background: var(--ground);
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 14px;
+}
+.portal-head .crest {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+.portal-head h1 { color: #fff; font-size: 1.75rem; }
+.portal-head p { color: #cbd5e1; font-size: 0.9375rem; margin: 10px auto 0; max-width: 46ch; }
+.portal-body { max-width: 600px; margin: -28px auto 0; padding: 0 16px; }
+.portal-body .card { box-shadow: var(--shadow-raise); }
+.portal input, .portal select { padding: 13px; font-size: 1rem; }
+.portal .btn { width: 100%; }
+.drop {
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 20px;
+  text-align: center;
+  background: var(--surface);
+  color: var(--ink-soft);
+}
+.drop input[type=file] { margin-top: 10px; background: var(--ground); }
+
+/* ---------- sign in ---------- */
+.auth { display: grid; grid-template-columns: 1fr 1fr; min-height: 100vh; }
+.auth-aside {
+  background: var(--hero);
+  color: #fff;
+  padding: 46px 44px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 40px;
+}
+.auth-aside .brand-logo {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  background: var(--ground);
+  border-radius: 10px;
+  padding: 4px;
+}
+.auth-aside h2 { color: #fff; font-size: 2rem; margin-bottom: 12px; }
+.auth-aside p { color: #cbd5e1; font-size: 0.9375rem; max-width: 44ch; }
+.auth-aside .aside-foot {
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  padding-top: 16px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.auth-main { display: grid; place-items: center; padding: 40px 22px; }
+.auth-card { width: 100%; max-width: 420px; }
+.auth-card > h1 { margin-bottom: 6px; }
+
+/* Kept for standalone centred cards (not-found). */
+.login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 22px; }
+.login-card { width: 100%; max-width: 420px; }
+
+@media (max-width: 1040px) {
+  .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .verify-grid { grid-template-columns: 1fr; }
+  .hero-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  .auth { grid-template-columns: 1fr; }
+  .auth-aside { padding: 30px 24px; gap: 24px; }
+  .auth-aside h2 { font-size: 1.5rem; }
+}
+@media (max-width: 860px) {
+  .shell { grid-template-columns: 1fr; }
+  .sidebar { position: static; height: auto; }
+  .sidebar nav { flex-direction: row; overflow-x: auto; padding-bottom: 4px; }
+  .sidebar nav a { white-space: nowrap; border-left: 0; border-bottom: 3px solid transparent; }
+  .sidebar nav a[aria-current="page"] { border-left: 0; border-bottom-color: var(--gold-solid); }
+  .sidebar .foot { display: none; }
+  .grid-3, .grid-2 { grid-template-columns: 1fr; }
+  .content { padding: 18px 14px 52px; }
+  .field-row { grid-template-columns: 1fr; }
+  .hero-band { padding: 24px 20px 22px; }
+  .hero-band h1 { font-size: 1.5rem; }
+}
+@media (max-width: 560px) {
+  .grid-4 { grid-template-columns: 1fr; }
+  .hero-figures { grid-template-columns: 1fr; gap: 14px; }
+  .topbar { flex-wrap: wrap; padding: 10px 14px; }
+}
+
+/* ---------- navigation progress + skeletons ---------- */
+.nav-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 30%;
+  z-index: 100;
+  background: var(--gold-solid);
+  border-radius: 0 3px 3px 0;
+  animation: nav-progress-slide 1.1s ease-in-out infinite;
+}
+@keyframes nav-progress-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(340%); }
+}
+
+.skel {
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--line) 50%, var(--surface-sunken) 75%);
+  background-size: 200% 100%;
+  animation: skel-shimmer 1.2s ease-in-out infinite;
+}
+.skel-title { height: 26px; width: 220px; }
+.skel-line { height: 12px; }
+.skel-value { height: 30px; width: 70%; margin-top: 8px; }
+.skel-band { height: 168px; border-radius: var(--radius-lg); margin-bottom: 18px; }
+.skel-row {
+  display: flex;
+  gap: 12px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
+}
+@keyframes skel-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+    </style>
   </head>
   <body>
     <div style="background: #0b113b; color: #fff; padding: 14px 24px; font-size: 13px">

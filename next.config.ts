@@ -34,6 +34,10 @@ const frameHeaders = isProduction
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Development only: allows the app to be served from a hosted preview origin
+  // (a tunnel or a sandbox host) without Next warning about cross-origin
+  // /_next/* requests. Ignored in production.
+  allowedDevOrigins: ["*.e2b.app", "localhost", "127.0.0.1"],
   // Three 10 MB documents plus multipart overhead. Hosting platforms can
   // impose a lower request limit; this setting cannot override that limit.
   experimental: {
