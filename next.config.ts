@@ -28,6 +28,14 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "12mb",
     },
+    // Client-side router cache lifetimes. Revisiting an admin tab within the
+    // dynamic window re-renders from cache instantly instead of refetching;
+    // 30 s keeps figures fresh enough for an ops screen while making tab
+    // switches feel immediate.
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
   },
   async headers() {
     return [
