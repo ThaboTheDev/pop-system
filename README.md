@@ -385,7 +385,7 @@ Where it lives:
 | `src/components/PageHead.tsx` | Page heading: gold label, navy title, supporting line, actions. |
 | `src/components/Brand.tsx` | The crest and the sidebar lockup. |
 | `public/branding/msri-logo.png` | The institute's crest, as used on the website. |
-| `design/preview.html` | A static reference of every screen and control, for review without a database. `npm run preview:css` inlines the real stylesheet into it; it is not part of the build and is not shipped. |
+| `design/preview.html` | A static reference of every screen and control, for review without a database. Self-contained: `npm run preview:css` inlines the real stylesheet and the crest into it, so it opens from disk with zero external requests. It is not part of the build and is not shipped. |
 
 One configuration note: production still refuses to be framed
 (`X-Frame-Options: DENY`, `frame-ancestors 'none'`). `next.config.ts` relaxes
