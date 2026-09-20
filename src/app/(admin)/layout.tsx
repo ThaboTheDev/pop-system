@@ -6,6 +6,7 @@ import { SignOut } from "@/components/SignOut";
 import { humanise } from "@/lib/format";
 import { NavLink } from "@/components/NavLink";
 import { QueueCount } from "@/components/QueueCount";
+import { PendingRegistrations } from "@/components/PendingRegistrations";
 import { BrandMark } from "@/components/Brand";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -22,6 +23,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <nav>
           <NavLink href="/dashboard">Dashboard</NavLink>
           <NavLink href="/participants">Participants</NavLink>
+          <NavLink
+            href="/registrations"
+            count={
+              <Suspense fallback={null}>
+                <PendingRegistrations />
+              </Suspense>
+            }
+          >
+            Registrations
+          </NavLink>
           <NavLink href="/payments">Payments</NavLink>
           <NavLink
             href="/verification"

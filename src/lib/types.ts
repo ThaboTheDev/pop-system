@@ -8,6 +8,9 @@ export type ParticipantStatus =
   | "not_paid" | "partially_paid" | "fully_paid"
   | "verification_pending" | "payment_issue" | "refund_adjustment";
 
+export type RegistrationStatus = "pending" | "approved" | "rejected";
+export type RegistrationSource = "registry" | "import" | "self";
+
 export type PaymentMethod =
   | "eft" | "cash_deposit" | "card" | "mobile_money" | "payroll_deduction" | "other";
 
@@ -39,6 +42,11 @@ export interface Participant {
   payment_status: ParticipantStatus;
   last_payment_date: string | null;
   notes: string | null;
+  registration_status: RegistrationStatus;
+  registration_source: RegistrationSource;
+  registration_note: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
   created_at: string;
   updated_at: string;
 }

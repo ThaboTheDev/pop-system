@@ -9,6 +9,9 @@ export const templates = {
   payment_reminder: ["Payment reminder", "participant_ref", "amount", "due_date"],
   portal_otp: ["Your portal verification code", "code"],
   adjustment_decided: ["Account adjustment decision", "amount", "status", "reason"],
+  registration_received: ["Registration received", "name", "programme"],
+  registration_approved: ["Registration approved", "name", "participant_ref", "programme"],
+  registration_rejected: ["Registration not approved", "name", "reason"],
 } as const;
 export type Template = keyof typeof templates;
 type Payload = Record<string, unknown>;

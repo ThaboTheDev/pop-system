@@ -1,7 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber, humanise } from "@/lib/format";
-import { MFASettings } from "@/components/MFASettings";
 import { PageHead } from "@/components/PageHead";
 import { processNow, requeue } from "./actions";
 
@@ -131,7 +130,21 @@ export default async function SettingsPage() {
           </dl>
         </div>
 
-        <MFASettings />
+        <div className="card">
+          <h2>Sign-in and access control</h2>
+          <p>
+            Administrators sign in with their work email and password. There is
+            no second factor: the authenticator step was removed from both the
+            sign-in form and the server-side check together, rather than left
+            to challenge nothing.
+          </p>
+          <p className="faint" style={{ marginBottom: 0 }}>
+            What stands in its place: row level security on every table, role
+            checks inside the SQL functions, an append-only audit log, and
+            server-only secrets. The trade-off, and how the second factor could
+            be restored, is written down in README §7.
+          </p>
+        </div>
       </div>
     </>
   );

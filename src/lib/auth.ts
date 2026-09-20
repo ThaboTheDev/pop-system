@@ -14,8 +14,11 @@ export const currentUser = cache(async (): Promise<AppUser | null> => {
   const sb = await supabaseServer();
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return null;
-  const { data: assurance, error: assuranceError } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (assuranceError || (assurance?.nextLevel === "aal2" && assurance.currentLevel !== "aal2")) return null;
+  // Sign-in is work email and password only (README §7 records the trade-off
+  // and the compensating controls). There is deliberately no aal2 check here:
+  // a form without a second factor while this gate remains would lock every
+  // administrator out of the admin area, so the requirement was removed from
+  // both sides together.
   const { data } = await sb.from("app_users").select("*").eq("id", user.id).single();
   if (!data || !data.is_active) return null;
   return data as AppUser;

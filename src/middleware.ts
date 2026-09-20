@@ -40,7 +40,7 @@ export async function middleware(request: NextRequest) {
   if (!isApi && !isStatic) {
     const { data: { user } } = await supabase.auth.getUser();
     const isPublic =
-      path === "/" || path.startsWith("/login") || path.startsWith("/submit") || path === "/portal" || path.startsWith("/portal/") || path.startsWith("/clarify/");
+      path === "/" || path.startsWith("/login") || path.startsWith("/submit") || path === "/register" || path === "/portal" || path.startsWith("/portal/") || path.startsWith("/clarify/");
 
     if (!user && !isPublic) {
       const url = request.nextUrl.clone();

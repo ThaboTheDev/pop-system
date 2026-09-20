@@ -11,8 +11,15 @@ export async function requestOTP(_previous: OTPResult, form: FormData): Promise<
   const ip = (await headers()).get("x-forwarded-for") ?? "unknown";
   if (!rateLimit(`portal:${ip}`, 10, 3600_000).allowed) return { error: "Please wait before requesting another code." };
   const sb = supabaseAdmin();
-  const { data: p } = await sb.from("participants").select("id").eq("participant_ref", String(form.get("ref") ?? "").trim().toUpperCase())
-    .eq("email", String(form.get("email") ?? "").trim()).maybeSingle();
+  // Approved registrations only: issue_portal_otp() would return nothing for
+  // anyone else anyway, and the reply below is word-for-word the same either
+  // way, so the portal cannot be used to probe the register for who is on it,
+  // who is waiting, or who was turned away.
+  const { data: p } = await sb.from("participants").select("id")
+    .eq("participant_ref", String(form.get("ref") ?? "").trim().toUpperCase())
+    .eq("email", String(form.get("email") ?? "").trim())
+    .eq("registration_status", "approved")
+    .maybeSingle();
   const code = String(randomInt(100000, 1000000));
   let id = randomUUID();
   let issued = false;
