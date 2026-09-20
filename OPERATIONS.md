@@ -189,12 +189,22 @@ system cannot trade.
 ## 7. Email delivery
 
 Verify the Resend sending domain before enabling the cron. Email is the only
-supported channel. `vercel.json` schedules `/api/notifications/process` every ten
-minutes; the hosting plan must support that frequency. Set `CRON_SECRET` so the
-scheduler sends `Authorization: Bearer <secret>`. GET and POST accept that
-credential or an active super-admin session. Each run processes up to 25 queued
-rows with at most ten concurrent sends. Settings provides process-now and retries
-for email rows only.
+supported channel. Delivery is split in two, because the hosting plan (Vercel
+Hobby) allows at most one scheduled run a day and rejects an every-ten-minutes
+schedule at deployment validation:
+
+- **Prompt path.** `queueParticipantMessage()` commits the outbox row, then
+  schedules `processOutbox(25)` with `after()`, so the message is sent as soon
+  as the triggering response is flushed. Portal sign-in codes go through the
+  same outbox, so they leave well within their ten-minute lifetime.
+- **Daily sweep.** `vercel.json` schedules `/api/notifications/process` at
+  05:00 UTC (`0 5 * * *`). Each run drains the queue in batches of 100 with at
+  most ten concurrent sends, looping until the queue is empty or 45 s have
+  elapsed (inside `maxDuration = 60`); anything left resumes tomorrow.
+
+Set `CRON_SECRET` so the scheduler sends `Authorization: Bearer <secret>`. GET
+and POST accept that credential or an active super-admin session. Settings
+provides process-now and retries for email rows only.
 
 | Email template | Payload fields |
 | --- | --- |
@@ -216,8 +226,9 @@ idempotency retention window. There is no automatic retry of ambiguous deliverie
 Missing configuration/recipients are `skipped`; rejected or timed-out requests are
 `failed`; provider acceptance is `sent` (not proof of delivery). Fix configuration
 before requeueing. Do not requeue redacted/anonymized recipients. Portal OTP email
-must leave the queue well within its ten-minute lifetime; monitor backlog and
-increase scheduler capacity/frequency externally if necessary.
+leaves the queue as the response that issued it flushes; the daily sweep is the
+backstop if a post-response run is interrupted. Monitor skipped/failed counts —
+a backlog now means mail is slow, not lost.
 
 ### Upgrading an existing installation
 

@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const templates = {
@@ -26,6 +27,19 @@ export async function queueParticipantMessage(participantId: string, template: T
     channel: "email", recipient: p.email,
   });
   if (insertError) throw new Error(insertError.message);
+  // Deliver once the response is flushed rather than waiting for the daily
+  // sweep: the cron runs once a day (the hosting plan allows no more), and a
+  // portal sign-in code lives for only ten minutes, so scheduling alone would
+  // strand it. after() is registration-only — if the process dies before the
+  // callback runs, the row stays queued and the sweep picks it up.
+  try {
+    after(async () => {
+      await processOutbox(25);
+    });
+  } catch {
+    // Not inside Next's request scope (a script or a test). Queueing must
+    // never fail because delivery could not be scheduled; the sweep catches up.
+  }
 }
 async function send(row: { id: number; template: string; payload: Payload; channel: string; recipient: string | null }) {
   if (row.channel !== "email") return "Unsupported channel: email delivery only";
