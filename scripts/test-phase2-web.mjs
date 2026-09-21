@@ -130,7 +130,7 @@ const applications = await load('src/lib/applications.ts',{
   '@/lib/notify':{scheduleOutbox:() => {scheduled++;}},
   '@/lib/types':types,
 });
-const fields = {first_name:'Nomvula',surname:'Sithole',email:'Nomvula@example.test',mobile:'0721234567',programme_code:'OPEN',consent:'on',notice_version:types.PRIVACY_NOTICE_VERSION};
+const fields = {first_name:'Nomvula',surname:'Sithole',email:'Nomvula@example.test',mobile:'0721234567',programme_code:'OPEN',consent:'on',notice_version:types.PRIVACY_NOTICE_VERSION,payment_option:'single'};
 assert.match((await applications.submitApplication(form({...fields,consent:''}),false)).error,/Consent/);
 assert.match((await applications.submitApplication(form({...fields,notice_version:'old'}),false)).error,/changed/);
 assert.equal(rpcCalls.length,0);
@@ -138,6 +138,7 @@ assert.equal((await applications.submitApplication(form(fields),false)).ok,true)
 assert.equal(rpcCalls[0].name,'submit_application');
 assert.equal(rpcCalls[0].args.p_notice_version,types.PRIVACY_NOTICE_VERSION);
 assert.equal(rpcCalls[0].args.p_in_person,false);
+assert.equal(rpcCalls[0].args.p_payment_option,'single');
 await applications.submitApplication(form(fields),true);
 assert.equal(rpcCalls[1].args.p_in_person,true); assert.equal(scheduled,2);
 

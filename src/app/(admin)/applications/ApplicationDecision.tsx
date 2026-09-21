@@ -20,7 +20,7 @@ export function ApplicationDecision({ id, fee, consent }: { id: string; fee: num
           <input id={`fee-${id}`} name="fee" type="number" min="0" max="9999999999.99" step="0.01" placeholder={Number(fee).toFixed(2)} style={{ maxWidth: 150 }} disabled={busy || !consent} />
           <button className="btn btn-sm btn-primary" disabled={busy || !consent}>{approving ? "Approving…" : "Approve"}</button>
         </div>
-        <small className="faint">Leave blank for the current programme fee; enter 0 for a full bursary.</small>
+        <small className="faint">Leave blank to use the applicant’s chosen price; enter 0 for a full bursary.</small>
       </form>
       <form action={reject} style={{ marginTop: 12 }}>
         <input type="hidden" name="id" value={id} />

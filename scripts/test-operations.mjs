@@ -17,7 +17,7 @@ try {
  grant usage on schema public,auth to anon,authenticated,service_role;
  alter default privileges in schema public grant all on tables to authenticated,service_role;
  alter default privileges in schema public grant usage,select on sequences to authenticated,service_role;`);
- for(const file of ['0001_schema.sql','0002_functions.sql','0003_security.sql','0004_operations.sql','0005_email_only.sql','0006_registration.sql','0007_runner_role.sql','0008_registration_portal.sql']) {
+ for(const file of ['0001_schema.sql','0002_functions.sql','0003_security.sql','0004_operations.sql','0005_email_only.sql','0006_registration.sql','0007_runner_role.sql','0008_registration_portal.sql','0009_programme_pricing.sql']) {
   if (file === '0005_email_only.sql') await db.query(`
    insert into notifications(template,channel,state,recipient) values
     ('legacy-test','whatsapp','queued','27721234567'),

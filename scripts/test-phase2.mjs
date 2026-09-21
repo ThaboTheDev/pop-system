@@ -69,6 +69,7 @@ try {
   assert.equal(await scalar('select count(*)::int from participants'),4);
   await q('delete from payment_plans where participant_id=$1',[legacyPending]);
   await migrate('0008_registration_portal.sql');
+  await migrate('0009_programme_pricing.sql');
   await q("set statement_timeout='30s'");
   assert.equal(await scalar('select count(*)::int from participants'),1);
   assert.equal(await scalar('select participant_ref from participants where id=$1',[legacyApproved]),oldRef);
@@ -147,6 +148,33 @@ try {
   assert.equal(await scalar('select participant_id from applications where id=$1',[declineApp]),null);
   assert.equal(await scalar('select last_value::text from participant_ref_seq'),seqBeforeDecline);
   assert.equal(await scalar("select count(*)::int from notifications where application_id=$1 and template='registration_rejected' and payload->>'reason'='Programme requirements not met'",[declineApp]),1);
+
+  await as(null,'postgres');
+  await assert.rejects(q("insert into programmes(code,name,amount_due,pricing_model,once_off_amount) values('BAD','Bad dual',1000,'dual',null)"),/programmes_pricing_shape_check/);
+  await assert.rejects(q("insert into programmes(code,name,amount_due,pricing_model,once_off_amount) values('BAD2','Bad dual',1000,'dual',1200)"),/programmes_pricing_shape_check/);
+  await q("insert into programmes(code,name,amount_due,once_off_amount,pricing_model) values('DUAL','Dual programme',10000,8500,'dual')");
+  const dualCatalog = (await q("select * from registration_programmes() where code='DUAL'"))[0];
+  assert.equal(dualCatalog.pricing_model,'dual');
+  assert.equal(Number(dualCatalog.once_off_amount),8500);
+  await as(null,'anon');
+  await assert.rejects(submit('dual-none@example.test',{code:'DUAL'}),/PAYMENT_OPTION_REQUIRED/);
+  await assert.rejects(scalar("select submit_application('Nomvula','Sithole',$1,'0721234567','DUAL',true,'2026-09-21.1',false,'single')",['dual-single@example.test']),/PAYMENT_OPTION_REQUIRED/);
+  await assert.rejects(scalar("select submit_application('Nomvula','Sithole',$1,'0721234567','OPEN',true,'2026-09-21.1',false,'once_off')",['open-once@example.test']),/INVALID_PAYMENT_OPTION/);
+  assert.deepEqual(await scalar("select submit_application('Nomvula','Sithole',$1,'0721234567','DUAL',true,'2026-09-21.1',false,'once_off')",['onceoff@example.test']),{already_applied:false});
+  assert.deepEqual(await scalar("select submit_application('Nomvula','Sithole',$1,'0721234567','DUAL',true,'2026-09-21.1',false,'monthly')",['monthly@example.test']),{already_applied:false});
+  await as(null,'postgres');
+  assert.equal(await scalar("select payment_option from applications where email='onceoff@example.test'"),'once_off');
+  assert.equal(await scalar("select quoted_fee::text from applications where email='onceoff@example.test'"),'8500.00');
+  assert.equal(await scalar("select payment_option from applications where email='monthly@example.test'"),'monthly');
+  assert.equal(await scalar("select quoted_fee::text from applications where email='monthly@example.test'"),'10000.00');
+  await as(finance);
+  const onceApp = await scalar("select id from applications where email='onceoff@example.test'");
+  const monthlyApp = await scalar("select id from applications where email='monthly@example.test'");
+  const onceApproved = await scalar('select approve_application($1,$2)',[onceApp,finance]);
+  const monthlyApproved = await scalar('select approve_application($1,$2)',[monthlyApp,finance]);
+  assert.equal(await scalar('select amount_due::text from participants where id=$1',[onceApproved.participant_id]),'8500.00');
+  assert.equal(await scalar('select amount_due::text from participants where id=$1',[monthlyApproved.participant_id]),'10000.00');
+  console.log('PASS dual pricing: catalogue shape, required once-off/monthly choice, quoted fee used on approval');
 
   // Simultaneous public requests still produce one row and one acknowledgement.
   const clients = [pg.getPgClient(),pg.getPgClient()];

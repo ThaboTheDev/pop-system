@@ -82,8 +82,8 @@ through `/verification` and confirm the participant profile figures move.
 ## 3. Deployment
 
 1. Read `HANDOVER.md` and confirm the authoritative Supabase project and migration
-   history first. Fresh databases apply 0001–0008 in order. Existing installations
-   of this repository apply 0007 and 0008 after a backup and staging rehearsal.
+   history first. Fresh databases apply 0001–0009 in order. Existing installations
+   of this repository apply 0007, 0008 and 0009 after a backup and staging rehearsal.
    **0007 must commit on its own before 0008.** The external brief uses conflicting
    version numbers; do not mix the two migration histories. Pause writes for the
    data-moving upgrade; unapproved legacy rows with financial records abort it.
@@ -285,8 +285,8 @@ with a truncation notice, and balances include approved adjustments.
 ## 9. Go-live checklist
 
 - Confirm the live project and migration history using `HANDOVER.md`; rehearse and
-  back up before production. Fresh installations run 0001–0008; existing repository
-  installations add 0007 then 0008, in separate committed transactions.
+  back up before production. Fresh installations run 0001–0009; existing repository
+  installations add 0007 then 0008 then 0009, in separate committed transactions.
 - Run `npm ci`, `npm run typecheck`, `npm run build`, `npm test`.
   The latter uses real temporary PostgreSQL with stub auth/storage and mocked
   server-action dependencies, not live Supabase or SMTP.
@@ -318,7 +318,7 @@ with a truncation notice, and balances include approved adjustments.
 
 ### Operations-layer automated checks
 
-`scripts/test-operations.mjs` applies 0001–0008 and uses a light seed to exercise
+`scripts/test-operations.mjs` applies 0001–0009 and uses a light seed to exercise
 accounting, verification/claims, adjustments, plans, reconciliation, documents,
 single-use resubmission, merge, anonymization, reporting, append-only audit and
 staff guards. The removed OTP/participant-backed registration checks are replaced

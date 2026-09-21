@@ -13,9 +13,20 @@ type Props = {
   inPerson?: boolean;
 };
 
+function isDual(programme: RegistrationProgramme | undefined) {
+  return programme?.pricing_model === "dual" && programme.once_off_amount != null;
+}
+
 export function ApplicationForm({ programmes, submit, inPerson = false }: Props) {
   const [result, setResult] = useState<ApplicationResult | null>(null);
   const [pending, start] = useTransition();
+  const [code, setCode] = useState("");
+  const selected = programmes.find(p => p.code === code);
+  const dual = isDual(selected);
+  const monthly = Number(selected?.amount_due ?? 0);
+  const onceOff = Number(selected?.once_off_amount ?? 0);
+  const savings = monthly - onceOff;
+
   if (result?.ok) {
     return (
       <div className="card" role="status">
@@ -63,11 +74,57 @@ export function ApplicationForm({ programmes, submit, inPerson = false }: Props)
       </div>
       <div className="field">
         <label htmlFor="programme_code">Programme</label>
-        <select id="programme_code" name="programme_code" required defaultValue="">
+        <select id="programme_code" name="programme_code" required value={code} onChange={e => setCode(e.target.value)}>
           <option value="" disabled>Choose a programme</option>
-          {programmes.map(p => <option key={p.code} value={p.code}>{p.name} — {formatMoney(p.amount_due)}</option>)}
+          {programmes.map(p => (
+            <option key={p.code} value={p.code}>
+              {p.pricing_model === "dual" && p.once_off_amount != null
+                ? `${p.name} — once-off ${formatMoney(p.once_off_amount)} / monthly ${formatMoney(p.amount_due)}`
+                : `${p.name} — ${formatMoney(p.amount_due)}`}
+            </option>
+          ))}
         </select>
       </div>
+
+      {selected && !dual ? (
+        <div className="price-callout">
+          <span className="choice-kicker">Programme fee</span>
+          <strong className="choice-price">{formatMoney(selected.amount_due)}</strong>
+          <p className="faint" style={{ margin: "4px 0 0" }}>
+            This programme has one price. It becomes the amount due if the application is approved.
+          </p>
+          <input type="hidden" name="payment_option" value="single" />
+        </div>
+      ) : null}
+
+      {selected && dual ? (
+        <fieldset className="pricing-fieldset">
+          <legend>How will you pay?</legend>
+          <p className="faint" style={{ marginTop: 0 }}>
+            Choose one. Once-off is the discounted full payment. Monthly is the original programme fee.
+          </p>
+          <div className="choice-grid" key={selected.code}>
+            <label className="choice">
+              <input type="radio" name="payment_option" value="once_off" required />
+              <span className="choice-body">
+                <span className="choice-kicker">Pay once-off</span>
+                <strong className="choice-price">{formatMoney(onceOff)}</strong>
+                <span className="choice-note">Discounted full payment</span>
+                {savings > 0 ? <span className="choice-save">Save {formatMoney(savings)} versus monthly</span> : null}
+              </span>
+            </label>
+            <label className="choice">
+              <input type="radio" name="payment_option" value="monthly" required />
+              <span className="choice-body">
+                <span className="choice-kicker">Pay monthly</span>
+                <strong className="choice-price">{formatMoney(monthly)}</strong>
+                <span className="choice-note">Original programme fee</span>
+              </span>
+            </label>
+          </div>
+        </fieldset>
+      ) : null}
+
       <PrivacyNotice />
       <input type="hidden" name="notice_version" value={PRIVACY_NOTICE_VERSION} />
       <div className="consent">

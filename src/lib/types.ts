@@ -15,10 +15,15 @@ export type RegistrationSource = "registry" | "import" | "application";
 // application records the version shown, the consent method and a DB timestamp.
 export const PRIVACY_NOTICE_VERSION = "2026-09-21.1";
 
+export type PricingModel = "single" | "dual";
+export type PaymentOption = "single" | "once_off" | "monthly";
+
 export interface RegistrationProgramme {
   code: string;
   name: string;
   amount_due: number;
+  once_off_amount: number | null;
+  pricing_model: PricingModel;
 }
 
 export type PaymentMethod =

@@ -10,7 +10,14 @@ export async function registrationProgrammes(): Promise<RegistrationProgramme[] 
   try {
     const sb = await supabaseServer();
     const { data, error } = await sb.rpc("registration_programmes");
-    return error ? null : data ?? [];
+    if (error) return null;
+    return (data ?? []).map((row: RegistrationProgramme) => ({
+      code: row.code,
+      name: row.name,
+      amount_due: Number(row.amount_due),
+      once_off_amount: row.once_off_amount == null ? null : Number(row.once_off_amount),
+      pricing_model: row.pricing_model === "dual" ? "dual" : "single",
+    }));
   } catch { return null; }
 }
 
@@ -25,6 +32,7 @@ export async function submitApplication(form: FormData, inPerson: boolean): Prom
   if (form.get("notice_version") !== PRIVACY_NOTICE_VERSION)
     return { error: "The privacy notice has changed. Refresh this page and read it before applying." };
 
+  const option = String(form.get("payment_option") ?? "").trim();
   const sb = await supabaseServer();
   const { data, error } = await sb.rpc("submit_application", {
     p_first_name: String(form.get("first_name") ?? "").trim(),
@@ -35,6 +43,7 @@ export async function submitApplication(form: FormData, inPerson: boolean): Prom
     p_consent: true,
     p_notice_version: PRIVACY_NOTICE_VERSION,
     p_in_person: inPerson,
+    p_payment_option: option || null,
   });
   if (error) {
     const messages: Record<string, string> = {
@@ -44,6 +53,8 @@ export async function submitApplication(form: FormData, inPerson: boolean): Prom
       INVALID_EMAIL: "Enter a valid email address. The decision will be sent there.",
       INVALID_MOBILE: "The mobile number is too long.",
       UNKNOWN_PROGRAMME: "That programme is not open for applications. Refresh and choose an available programme.",
+      PAYMENT_OPTION_REQUIRED: "This programme has two prices. Choose once-off (discounted) or monthly (original price).",
+      INVALID_PAYMENT_OPTION: "That payment option is not available on the selected programme.",
       FORBIDDEN: "Your account cannot capture applications. Sign in with your runner account.",
     };
     return { error: messages[error.message] ?? "The application could not be recorded. Please try again." };

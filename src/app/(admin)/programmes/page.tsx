@@ -16,7 +16,7 @@ export default async function ProgrammesPage() {
       <PageHead
         eyebrow="Academics"
         title="Programmes"
-        sub="Each programme carries its own fee, which becomes the amount due for participants imported against it."
+        sub="Each programme carries a fee — either one price, or two: a discounted once-off amount and the original monthly price. Applicants choose when they register; the chosen amount becomes due if the application is approved."
       />
       <div className="card card-flush">
         <div className="table-wrap">

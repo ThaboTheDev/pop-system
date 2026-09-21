@@ -17,6 +17,17 @@ export const formatNumber = (v: number | null | undefined) =>
 export const humanise = (v: string | null | undefined) =>
   (v ?? "").replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 
+const PAYMENT_OPTION_LABELS: Record<string, string> = {
+  once_off: "Once-off (discounted)",
+  monthly: "Monthly (original price)",
+  single: "Single programme fee",
+};
+
+export const describePaymentOption = (option: string | null | undefined, quoted?: number | string | null) => {
+  const label = PAYMENT_OPTION_LABELS[option ?? ""] ?? "Programme fee";
+  return quoted == null || quoted === "" ? label : `${label} · ${formatMoney(quoted)}`;
+};
+
 export const fileSize = (bytes: number) => {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1048576) return `${(bytes / 1024).toFixed(0)} KB`;

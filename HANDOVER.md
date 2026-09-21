@@ -26,16 +26,18 @@ This implementation adds forward migrations:
 2. **Commit 0007 on its own.**
 3. `0008_registration_portal.sql` — applications, portal binding/RLS, constrained
    runner capture and retirement of the old registration/OTP implementation.
+4. `0009_programme_pricing.sql` — optional dual fees (discounted once-off vs original monthly).
 
 For a database that already has this repository's 0001–0006:
 
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -1 -f supabase/migrations/0007_runner_role.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -1 -f supabase/migrations/0008_registration_portal.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -1 -f supabase/migrations/0009_programme_pricing.sql
 ```
 
 Separate `psql` invocations/transactions are intentional. A fresh installation
-runs 0001–0008 in order, with each file in its own transaction. If the chosen
+runs 0001–0009 in order, with each file in its own transaction. If the chosen
 project already contains the **other** Phase 2 schema, inspect its schema and
 migration history and prepare a reviewed reconciliation migration instead. These
 forward migrations target the previous schema in this repository, not an unknown
@@ -47,7 +49,7 @@ remote schema. No production migrations have been run in this session.
   staging copy, not the production database or another person's seed project.
 - Pause submissions, staff writes and delivery workers; do not run old and new
   application instances against the schema at the same time.
-- Apply 0007 and then 0008, deploy matching code and configure Auth (below).
+- Apply 0007 and then 0008, then 0009, deploy matching code and configure Auth (below).
 - Check counts, balances, legacy applications and outbox rows before reopening.
 - Recovery requires the matching pre-upgrade backup/code, not blindly reversing
   the data-moving migration. There is no automatic down migration.
@@ -175,7 +177,7 @@ npm run build
 npm test
 ```
 
-`test:operations` applies all eight migrations to temporary real PostgreSQL and
+`test:operations` applies all nine migrations to temporary real PostgreSQL and
 checks existing accounting, reconciliation, documents, merge/anonymization and
 staff guards. `test:phase2` separately tests the forward upgrade with legacy data,
 refusal of unsafe migration, consent/programme validation, concurrent duplicates,
