@@ -17,7 +17,7 @@ try {
  grant usage on schema public,auth to anon,authenticated,service_role;
  alter default privileges in schema public grant all on tables to authenticated,service_role;
  alter default privileges in schema public grant usage,select on sequences to authenticated,service_role;`);
- for(const file of ['0001_schema.sql','0002_functions.sql','0003_security.sql','0004_operations.sql','0005_email_only.sql']) {
+ for(const file of ['0001_schema.sql','0002_functions.sql','0003_security.sql','0004_operations.sql','0005_email_only.sql','0006_registration.sql']) {
   if (file === '0005_email_only.sql') await db.query(`
    insert into notifications(template,channel,state,recipient) values
     ('legacy-test','whatsapp','queued','27721234567'),
@@ -130,6 +130,50 @@ try {
  } finally { await Promise.all(clients.map(c=>c.end())); }
 
  console.log('PASS accounting, clarification, concurrent claims, adjustments, plan rounding, reconciliation, documents, consent, tokens, OTP caps, merge, anonymization, reports, append-only audit, super-admin guards, rejection reason, default-deny RLS');
+
+ // ---- 0006: self-registration with finance approval ---------------------
+ // Rows inserted without a status default to approved, so everything above
+ // already exercised the gate's happy path; now prove a waiting applicant
+ // is inert and that both decisions commit atomically with their audit line
+ // and outgoing email.
+ const pendingApplicant=await scalar(`insert into participants(first_name,surname,email,programme_id,amount_due,registration_status,registration_source) values('Awaiting','Decision','awaiting@example.test',$1,1000,'pending','self') returning id`,[programme]);
+ // The payments trigger refuses every write path for an unapproved participant.
+ await assert.rejects(q(`insert into payments(participant_id,programme_id,amount,payment_date) values($1,$2,100,current_date)`,[pendingApplicant,programme]),/REGISTRATION_NOT_APPROVED/);
+ // No portal code exists for one, whoever asks.
+ assert.equal(await scalar(`select issue_portal_otp($1,'hash')`,[pendingApplicant]),null);
+ // Nothing has left the system for them: the participant ID stays inside.
+ assert.equal(await scalar('select count(*)::int from notifications where participant_id=$1',[pendingApplicant]),0);
+ // A second waiting self-registration on the same email is a 23505, not a second record.
+ await assert.rejects(q(`insert into participants(first_name,surname,email,programme_id,amount_due,registration_status,registration_source) values('Awaiting','Twice','awaiting@example.test',$1,1000,'pending','self')`,[programme]),/participants_one_pending_self_idx/);
+ // Decide as the finance administrator.
+ await q(`select set_config('request.jwt.claim.sub',$1,false), set_config('request.jwt.claim.role','authenticated',false)`,[finance]);
+ await q(`set role authenticated`);
+ const otherApplicant=await scalar(`insert into participants(first_name,surname,email,programme_id,amount_due,registration_status,registration_source) values('Turned','Away','turned@example.test',$1,1000,'pending','self') returning id`,[programme]);
+ // Rejection without a reason is refused by the database, not the form.
+ await assert.rejects(q(`select reject_registration($1,'',$2)`,[otherApplicant,finance]),/REJECTION_REASON_REQUIRED/);
+ await q(`select reject_registration($1,'Documents did not match the programme register',$2)`,[otherApplicant,finance]);
+ assert.equal(await scalar('select registration_status from participants where id=$1',[otherApplicant]),'rejected');
+ assert.equal(await scalar('select registration_note from participants where id=$1',[otherApplicant]),'Documents did not match the programme register');
+ assert.equal(await scalar('select reviewed_by from participants where id=$1',[otherApplicant]),finance);
+ // The rejected stay inert too, and their single email carries the reason.
+ await assert.rejects(q(`insert into payments(participant_id,programme_id,amount,payment_date) values($1,$2,100,current_date)`,[otherApplicant,programme]),/REGISTRATION_NOT_APPROVED/);
+ assert.equal(await scalar(`select count(*)::int from notifications where participant_id=$1 and template='registration_rejected' and recipient='turned@example.test' and payload->>'reason' is not null`,[otherApplicant]),1);
+ assert.equal(await scalar(`select count(*)::int from audit_logs where action='registration.rejected' and entity_id=$1`,[otherApplicant]),1);
+ // Approval releases the gate atomically with its audit line and the email
+ // that first reveals the participant ID.
+ await q(`select approve_registration($1,$2)`,[pendingApplicant,finance]);
+ assert.equal(await scalar('select registration_status from participants where id=$1',[pendingApplicant]),'approved');
+ const approvedRef=await scalar('select participant_ref from participants where id=$1',[pendingApplicant]);
+ assert.equal(await scalar(`select count(*)::int from notifications where participant_id=$1 and template='registration_approved' and recipient='awaiting@example.test' and payload->>'participant_ref'=$2`,[pendingApplicant,approvedRef]),1);
+ assert.equal(await scalar(`select count(*)::int from audit_logs where action='registration.approved' and entity_id=$1`,[pendingApplicant]),1);
+ await assert.rejects(q(`select approve_registration($1,$2)`,[pendingApplicant,finance]),/ALREADY_REVIEWED/);
+ await q(`insert into payments(participant_id,programme_id,amount,payment_date) values($1,$2,100,current_date)`,[pendingApplicant,programme]);
+ await q(`set role service_role; select set_config('request.jwt.claim.role','service_role',false)`);
+ assert.ok(await scalar(`select issue_portal_otp($1,'hash')`,[pendingApplicant]));
+ assert.equal(await scalar(`select issue_portal_otp($1,'hash')`,[otherApplicant]),null);
+ await q(`reset role; select set_config('request.jwt.claim.sub','',false); select set_config('request.jwt.claim.role','',false)`);
+
+ console.log('PASS registration: pending inert - payments refused (trigger), no portal code, participant ID withheld with zero outbound rows, one waiting application per email, reject requires a reason, approve/reject write status + audit + email in one transaction, self-registration gate');
 } finally {
  if(db) await db.end(); await pg.stop(); await rm(directory,{recursive:true,force:true});
 }

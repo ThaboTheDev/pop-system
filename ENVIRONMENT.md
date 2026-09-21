@@ -52,3 +52,23 @@ Resend requires a verified sending domain. Missing provider configuration causes
 outbox rows to be marked `skipped` with a reason. Email is the only delivery channel.
 Apply `0005_email_only.sql` to existing installations to disable legacy non-email
 queue entries. Remove any old Meta/WhatsApp credentials from your hosting environment.
+
+## Go-live checklist
+
+Twelve variables in all. Confirm every line is set (or consciously left to its
+default) before the first participant is told about the system:
+
+| # | Variable | Required? | Notes |
+| --- | --- | --- | --- |
+| 1 | `NEXT_PUBLIC_SUPABASE_URL` | required | Supabase project URL. |
+| 2 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | required | Anonymous key; RLS governs what it can see. |
+| 3 | `SUPABASE_SERVICE_ROLE_KEY` | required | Server only; bypasses RLS. Never `NEXT_PUBLIC_`. |
+| 4 | `APP_URL` | required | The public origin; also Supabase Auth Site URL, with `/login/reset` allowed. |
+| 5 | `PORTAL_SECRET` | required | At least 32 random characters; rotation invalidates portal sessions and outstanding OTP hashes. |
+| 6 | `CRON_SECRET` | required | Long random; the scheduler sends it as `Bearer` for the daily 05:00 UTC sweep. |
+| 7 | `RESEND_API_KEY` | required for delivery | Without it every outbox row is `skipped` with a reason. |
+| 8 | `RESEND_FROM` | required for delivery | Sender on your verified Resend domain. |
+| 9 | `ORG_NAME` | optional | Email letterhead; defaults to `Payments and PoP`. |
+| 10 | `POP_BUCKET` | optional | Defaults to `proof-of-payment`. |
+| 11 | `POP_SIGNED_URL_TTL` | optional | Minutes a signed PoP link lives; default 5. |
+| 12 | `DATABASE_URL` | migrations only | Not used by the app at runtime; prefer the transaction pooler for production runs. |

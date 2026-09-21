@@ -81,8 +81,9 @@ through `/verification` and confirm the participant profile figures move.
 
 ## 3. Deployment
 
-1. Create the Supabase project. Apply all five migrations (0001–0005) in order, either with
-   `psql` or the SQL editor. `0003` creates the private storage bucket.
+1. Create the Supabase project. Apply all six migrations (0001–0006) in order, either with
+   `psql` or the SQL editor. `0003` creates the private storage bucket; `0006` adds
+   self-registration and is what the `/register` and `/registrations` screens read.
 2. Push to GitHub and import the repository into Vercel.
 3. Set the environment variables in Vercel. `SUPABASE_SERVICE_ROLE_KEY` goes in
    as a server-side variable only; it must never carry the `NEXT_PUBLIC_` prefix.
@@ -146,7 +147,11 @@ Built in:
 - Portal OTP requests have the same production response for matching and non-matching
   registration details. Public submission errors are not an identity-verification mechanism.
 
-Enroll finance administrators in TOTP from Settings. Before heavy use, move the
+Administrator sign-in is work email and password only — there is no second
+factor to enroll. Require long passphrases, suspend leavers the day they go,
+and watch the audit log; README §7 records the trade-off and the compensating
+controls (row level security, SQL-level role checks, append-only audit,
+server-only secrets). Before heavy use, move the
 IP rate limiter to an edge service or Redis so it holds across server instances.
 OTP issuance and verification-attempt caps are already enforced in Postgres.
 
@@ -189,12 +194,22 @@ system cannot trade.
 ## 7. Email delivery
 
 Verify the Resend sending domain before enabling the cron. Email is the only
-supported channel. `vercel.json` schedules `/api/notifications/process` every ten
-minutes; the hosting plan must support that frequency. Set `CRON_SECRET` so the
-scheduler sends `Authorization: Bearer <secret>`. GET and POST accept that
-credential or an active super-admin session. Each run processes up to 25 queued
-rows with at most ten concurrent sends. Settings provides process-now and retries
-for email rows only.
+supported channel. Delivery is split in two, because the hosting plan (Vercel
+Hobby) allows at most one scheduled run a day and rejects an every-ten-minutes
+schedule at deployment validation:
+
+- **Prompt path.** `queueParticipantMessage()` commits the outbox row, then
+  schedules `processOutbox(25)` with `after()`, so the message is sent as soon
+  as the triggering response is flushed. Portal sign-in codes go through the
+  same outbox, so they leave well within their ten-minute lifetime.
+- **Daily sweep.** `vercel.json` schedules `/api/notifications/process` at
+  05:00 UTC (`0 5 * * *`). Each run drains the queue in batches of 100 with at
+  most ten concurrent sends, looping until the queue is empty or 45 s have
+  elapsed (inside `maxDuration = 60`); anything left resumes tomorrow.
+
+Set `CRON_SECRET` so the scheduler sends `Authorization: Bearer <secret>`. GET
+and POST accept that credential or an active super-admin session. Settings
+provides process-now and retries for email rows only.
 
 | Email template | Payload fields |
 | --- | --- |
@@ -205,9 +220,14 @@ for email rows only.
 | payment_reminder | participant_ref, amount, due_date |
 | adjustment_decided | amount, status, reason |
 | portal_otp | code |
+| registration_received | name, programme |
+| registration_approved | name, participant_ref, programme |
+| registration_rejected | name, reason |
 
 Submission, payment decision and adjustment emails are queued transactionally in
-Postgres. Reminders, portal codes and resubmit links use the email-only queue helper.
+Postgres, as are the two registration decision emails (they commit with the status
+change itself); the applicant's received notice is queued by the public action.
+Reminders, portal codes and resubmit links use the email-only queue helper.
 Resend uses a per-outbox-row idempotency key. Claims are guarded
 `queued → processing` updates. A crash after provider acceptance may leave a row
 `processing`: investigate provider logs before retrying, including the provider's
@@ -216,8 +236,9 @@ idempotency retention window. There is no automatic retry of ambiguous deliverie
 Missing configuration/recipients are `skipped`; rejected or timed-out requests are
 `failed`; provider acceptance is `sent` (not proof of delivery). Fix configuration
 before requeueing. Do not requeue redacted/anonymized recipients. Portal OTP email
-must leave the queue well within its ten-minute lifetime; monitor backlog and
-increase scheduler capacity/frequency externally if necessary.
+leaves the queue as the response that issued it flushes; the daily sweep is the
+backstop if a post-response run is interrupted. Monitor skipped/failed counts —
+a backlog now means mail is slow, not lost.
 
 ### Upgrading an existing installation
 
@@ -252,12 +273,18 @@ with a truncation notice, and balances include approved adjustments.
 
 ## 9. Go-live checklist
 
-- Apply 0001–0005 in order; test on a scratch project and back up before production.
+- Apply 0001–0006 in order; test on a scratch project and back up before production.
+  The new screens error on the new columns until `0006_registration.sql` is applied.
 - Run `npm ci`, `npm run typecheck`, `npm run build`, `npm run test:operations`.
   The latter uses real temporary PostgreSQL with stub auth/storage, not live Supabase.
 - Configure APP_URL, secrets, sending domains, email sender and scheduler.
 - Allow `/login/reset` in Supabase Auth redirects. Test invite, password reset,
-  PKCE and fragment links, MFA enroll/challenge/unenroll, and last-super-admin guard.
+  PKCE and fragment links, and the last-super-admin guard. Sign-in is password-only.
+- Exercise self-registration end to end: apply at `/register`; confirm the
+  applicant cannot submit a payment or get a portal code while waiting; approve
+  and confirm the email carries the participant ID; confirm a rejection without
+  a reason is refused, and with a reason emails the applicant; submit the same
+  email twice and confirm the second is told it is already waiting.
 - Test role/programme isolation with real course-admin, viewer and finance accounts.
 - Test portal matching/non-matching requests, wrong/expired codes and five-attempt cap;
   verify one participant cannot fetch another participant's receipt or statement.
@@ -280,5 +307,8 @@ pending≠income, verification, clarification notification, claim release, pendi
 approved adjustments, overdue plans, attached documents, token/statement/OTP inserts,
 OTP attempt caps, single-use resubmission, merge, anonymization, reporting, append-only
 audit, rejection reason, concurrent claims, cent-exact plan generation, bank auto-matching,
-consent, super-admin guards and default-deny access. Live Auth, Storage and Resend
+consent, super-admin guards and default-deny access, plus the self-registration gate:
+a pending applicant has no payments, no portal code and no outbound mail; one waiting
+application per email; approve/reject commit with their audit line and email. Live Auth,
+Storage and Resend
 are not emulated by these database tests and need the staging checks above.

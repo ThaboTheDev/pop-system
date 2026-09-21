@@ -111,7 +111,8 @@ pop-system/
 │   │   ├── 0002_functions.sql     rollups, duplicates, stats, search, reports
 │   │   ├── 0003_security.sql      RLS, role helpers, audit immutability, bucket
 │   │   ├── 0004_operations.sql    operations, claims, plans, tokens and reports
-│   │   └── 0005_email_only.sql    email-only delivery and legacy queue cleanup
+│   │   ├── 0005_email_only.sql    email-only delivery and legacy queue cleanup
+│   │   └── 0006_registration.sql  self-registration with approval, DB-enforced
 │   └── seed/seed.sql              20 000 participants, ~52 000 payments
 ├── scripts/create-admin.mjs       first administrator
 └── src/
@@ -127,6 +128,7 @@ pop-system/
     ├── components/                StatusBadge, Stat, Pager, charts, search
     └── app/
         ├── login/                 administrator sign in
+        ├── register/              public self-registration for applicants
         ├── portal/, clarify/[token]/  participant self-service
         ├── submit/                public participant PoP form (mobile first)
         ├── api/
@@ -135,7 +137,7 @@ pop-system/
         │   └── search/            global search
         └── (admin)/
             ├── dashboard, participants/[id], payments,
-            ├── verification/[id], programmes, reports,
+            ├── verification/[id], programmes, registrations, reports,
             └── import, users, audit, settings, adjustments, reconciliation
 ```
 
@@ -158,6 +160,7 @@ psql "$DATABASE_URL" -f supabase/migrations/0002_functions.sql
 psql "$DATABASE_URL" -f supabase/migrations/0003_security.sql
 psql "$DATABASE_URL" -f supabase/migrations/0004_operations.sql
 psql "$DATABASE_URL" -f supabase/migrations/0005_email_only.sql
+psql "$DATABASE_URL" -f supabase/migrations/0006_registration.sql
 ```
 
 Seed. The file defaults to 20 000 participants; change `v_participants` near the
@@ -175,7 +178,7 @@ node --env-file=.env.local scripts/create-admin.mjs \
 npm run dev
 ```
 
-The participant form is at `/submit`; self-service is at `/portal`. Both are public entry points. Configure delivery before requesting portal codes.
+The participant form is at `/submit`; self-service is at `/portal`; new applicants register at `/register`. All three are public entry points. Configure delivery before requesting portal codes.
 
 ### Environment variables
 
@@ -218,12 +221,78 @@ Dashboard, reports and exports reflect it immediately
 
 ---
 
-## 7. Operations layer and remaining scope
+## 7. Registration and access control
+
+### Administrator sign-in: work email and password, no second factor
+
+Sign-in is work email and password only. The previous in-app TOTP step was
+removed deliberately — the TOTP challenge is gone from the sign-in form, and
+the `aal2` requirement is gone from `currentUser()`. The two had to move
+together: removing only the form would have locked every administrator out of
+the admin area while the screen looked like it wanted a password alone, and
+the enrolment component was deleted rather than left in place to challenge
+nothing.
+
+The honest trade-off, recorded here rather than in a commit message:
+
+- **What was given up.** A guessed or phished password is now sufficient on
+  its own. Supabase Auth still owns password hashing, session rotation and
+  the reset flow, but nothing beyond the password stands between an attacker
+  and a session.
+- **What stands in its place (the compensating controls).** Row level
+  security on every table with a default-deny posture; role checks inside the
+  SQL functions themselves (`decide_payment`, `approve_registration`, …), so
+  a crafted request fails in the database regardless of what the application
+  let through; the append-only audit log, which even the service role cannot
+  rewrite; and server-only secrets — the service-role key never leaves the
+  server, and the public write paths (`/submit`, `/register`) go through
+  checked, rate-limited server actions.
+- **Restoring the factor is a small revert.** Put the challenge field back in
+  `LoginForm.tsx`, the `aal2` check back in `currentUser()` and the enrolment
+  card back on Settings. Until then: long passphrases, prompt suspension of
+  leavers, and an eye on the audit log.
+
+### How participants join the register
+
+Three routes in, and only one needs a review:
+
+- **Staff capture or bulk import** — `registration_source` is `registry` or
+  `import`, and the record is `approved` on arrival (the default). Nothing
+  about these flows changed.
+- **Self-registration at the public `/register`** — the applicant picks a
+  programme, consents, and lands as `pending` with `registration_source =
+  self`. Finance decides at `/registrations`; the sidebar badge streams the
+  waiting count.
+
+A pending record is inert by construction (`0006_registration.sql`), not by
+what any screen remembers to check:
+
+- A trigger on `payments` refuses **any** write for an unapproved participant
+  — public form, staff capture, payment batches and resubmission all go
+  through it.
+- `issue_portal_otp()` returns nothing for one, and the portal's reply is
+  unchanged, so the portal cannot be used to probe the register.
+- The participant ID is generated on insert, but it only leaves the system
+  inside the approval email.
+- A partial unique index allows **one** waiting self-registration per email:
+  a double submit is an error to the second tab, not two records to review.
+- `approve_registration()` and `reject_registration()` each commit the status
+  change, the audit line and the applicant's email in one transaction.
+  Rejection requires a reason, which is kept for staff and sent to the
+  applicant.
+
+---
+
+## 8. Operations layer and remaining scope
 
 ### Included
 
-- Streaming queue badge, navigation progress, CSS content skeleton and short tab cache.
-- Resend email outbox, scheduled worker and operator retry.
+- Streaming queue badges, navigation progress, CSS content skeleton and short tab cache.
+- Participant self-registration with finance approval: pending records cannot
+  pay or sign in, and both decisions commit with their audit line and email.
+- Password-only administrator sign-in; password reset via PKCE or fragment
+  session (§7 records the trade-off).
+- Resend email outbox, post-response delivery, daily retry sweep and operator retry.
 - Email OTP portal, signed seven-day cookies, single-use clarification upload links,
   consent capture and up to three submission documents.
 - Signed adjustments, monthly payment plans and reminders, bank CSV reconciliation,
@@ -233,7 +302,6 @@ Dashboard, reports and exports reflect it immediately
   participant editing, staff capture, merge and anonymization.
 - New-participant import, update-existing import and payment batches; arrears,
   throughput and duplicate reports with CSV exports.
-- In-app TOTP enrollment and sign-in challenge; password reset via PKCE or fragment session.
 
 ### Not included / deployment caveats
 
@@ -262,15 +330,16 @@ npm run test:operations
 ```
 
 The last command boots temporary real PostgreSQL via `embedded-postgres`, stubs
-Supabase auth/storage schemas and roles, applies 0001–0005 in transactions, seeds
-lightweight fixtures, and tests accounting and security invariants. It sends no messages.
+Supabase auth/storage schemas and roles, applies 0001–0006 in transactions, seeds
+lightweight fixtures, and tests accounting and security invariants — including the
+self-registration gate. It sends no messages.
 
 See `ENVIRONMENT.md` for APP_URL, ORG_NAME, RESEND_*, CRON_SECRET and
 PORTAL_SECRET configuration. Configure secrets in your host, never in Git.
 
 ---
 
-## 8. Design
+## 9. Design
 
 The interface follows the institute's own visual language rather than a generic
 admin theme, so an administrator moving between the MSRI website and this system
@@ -316,7 +385,7 @@ Where it lives:
 | `src/components/PageHead.tsx` | Page heading: gold label, navy title, supporting line, actions. |
 | `src/components/Brand.tsx` | The crest and the sidebar lockup. |
 | `public/branding/msri-logo.png` | The institute's crest, as used on the website. |
-| `design/preview.html` | A static reference of every screen and control, for review without a database. `npm run preview:css` inlines the real stylesheet into it; it is not part of the build and is not shipped. |
+| `design/preview.html` | A static reference of every screen and control, for review without a database. Self-contained: `npm run preview:css` inlines the real stylesheet and the crest into it, so it opens from disk with zero external requests. It is not part of the build and is not shipped. |
 
 One configuration note: production still refuses to be framed
 (`X-Frame-Options: DENY`, `frame-ancestors 'none'`). `next.config.ts` relaxes
