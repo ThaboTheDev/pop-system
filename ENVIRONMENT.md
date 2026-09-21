@@ -1,74 +1,92 @@
 # Environment variables
 
-Copy this into `.env.local` for development, or into your host's environment
-variable store for production (Vercel, etc.). **Never commit real keys.**
+Read `HANDOVER.md` **before deployment**. Confirm which Supabase project is
+actually live, reconcile migration history, and use keys from that same project.
+Never commit real keys or paste server credentials into chat.
 
-```
-# Supabase project (Project settings → API)
-NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-public-key-here
-
-# Server only. Never expose to the browser, never commit.
-# Used by the public PoP submission route and the admin bootstrap script.
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
-
-# Postgres connection, used for migrations and seeding only.
-# For serverless production prefer the Supabase TRANSACTION POOLER
-# (port 6543, append ?pgbouncer=true) to avoid exhausting DB slots.
-DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_REF.supabase.co:5432/postgres
-
-# Storage bucket holding proof-of-payment documents (private).
-POP_BUCKET=proof-of-payment
-
-# Minutes a signed PoP link stays valid.
-POP_SIGNED_URL_TTL=5
-```
-
-If the previous `.env.example` in your git history contained real credentials,
-rotate them in the Supabase dashboard immediately. Anything that has been
-pushed to a remote must be treated as compromised regardless of whether you
-rewrite history.
-
-## Operations layer (migration 0004)
-
-All variables below are **server-only**. Configure the same `APP_URL` in
-Supabase Auth's Site URL and allow `/login/reset` as a redirect URL.
+Create `.env.local` for development, or use the host's secret/environment store:
 
 ```dotenv
+# Supabase project settings → API. URL and keys must be from the same project.
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-public-key
+
+# Server only: public proof submission, controlled Auth provisioning, storage
+# signing after RLS authorisation, outbox processing and admin operations.
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# Migration/seed tools only; the app uses Supabase's API, not this connection.
+# Use a direct or session-pooler connection suitable for running DDL.
+DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_REF.supabase.co:5432/postgres
+
+# Deployed public ORIGIN, with no path/query/fragment. HTTPS in production.
+# For a hosted preview use its public https://...e2b.app origin, not localhost.
 APP_URL=https://payments.example.org
 ORG_NAME=MSR Learning Institute
+
+# Application outbox delivery; NOT Supabase Auth SMTP configuration.
 RESEND_API_KEY=your-resend-key
 RESEND_FROM=Finance <finance@your-verified-domain.example>
 CRON_SECRET=replace-with-a-long-random-secret
-PORTAL_SECRET=replace-with-at-least-32-random-characters
+
+# Optional storage defaults.
+POP_BUCKET=proof-of-payment
+POP_SIGNED_URL_TTL=5
 ```
 
-Generate secrets locally with `openssl rand -hex 32`. Rotating `PORTAL_SECRET`
-invalidates portal sessions and outstanding OTP hashes. Cookies last seven days;
-OTP codes expire in ten minutes. Development builds may display an issued OTP;
-production never does. Never run a development server as your public deployment.
+Generate `CRON_SECRET` locally, e.g. `openssl rand -hex 32`. Keep the service-role
+key server-only; it bypasses RLS. The public key is not a substitute for it.
+Rotate any real credentials previously committed in Git, even if their file was
+subsequently deleted. No `PORTAL_SECRET` is used: custom portal sessions and
+six-digit codes have been removed by Phase 2.
 
-Resend requires a verified sending domain. Missing provider configuration causes
-outbox rows to be marked `skipped` with a reason. Email is the only delivery channel.
-Apply `0005_email_only.sql` to existing installations to disable legacy non-email
-queue entries. Remove any old Meta/WhatsApp credentials from your hosting environment.
+## Participant email-link sign-in (Supabase dashboard)
+
+Under Authentication:
+
+1. Enable email sign-in and set Site URL to `APP_URL`.
+2. Add the deployed origin and `APP_URL/auth/callback` to allowed redirects.
+3. Keep `APP_URL/login/reset` allowed for staff/runner invitations and resets.
+4. Connect a production SMTP provider. Supabase's built-in sender is for testing,
+   not intake volume; check sender/domain verification and Auth rate limits.
+5. Keep the magic-link template using `{{ .ConfirmationURL }}`. The app exchanges
+   PKCE codes at `/auth/callback`; links must be opened in the requesting browser.
+
+Public Auth signups may remain disabled. A server action pre-provisions only an
+unambiguous enrolled non-staff email, with no password, and calls `signInWithOtp`
+with `shouldCreateUser: false`. Supabase still verifies mailbox possession before
+issuing a session. The database binds that session on first sign-in by verified
+email, refusing staff, unknown and ambiguous matches.
+
+**Two independent email configurations:** Supabase SMTP sends portal sign-in
+links. Resend + `RESEND_FROM` sends application/payment notifications through the
+outbox. Configuring one does not configure the other.
+
+## Application outbox
+
+Resend requires a verified sending domain. Missing provider configuration marks
+rows `skipped` with a reason; queued rows are claimed safely before delivery.
+Application submission/decision/capture actions schedule prompt processing. The
+Vercel cron drains remaining mail daily at 05:00 UTC, authenticated with
+`Authorization: Bearer <CRON_SECRET>`. Inspect provider acceptance and delivery
+before retrying ambiguous rows. No SMS/WhatsApp delivery is supported.
 
 ## Go-live checklist
 
-Twelve variables in all. Confirm every line is set (or consciously left to its
-default) before the first participant is told about the system:
+| Variable | Required? | Purpose |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Confirm the authoritative project with Tshidiso. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Request-scoped/browsing clients; RLS applies. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Server-only privileged operations. |
+| `APP_URL` | Yes | Canonical origin for Auth and clarification links. |
+| `CRON_SECRET` | Yes | Protect scheduled outbox processing. |
+| `RESEND_API_KEY` | For outbox delivery | Provider API credential. |
+| `RESEND_FROM` | For outbox delivery | Sender on a verified domain. |
+| `ORG_NAME` | Optional | Email/PDF letterhead. |
+| `POP_BUCKET` | Optional | Defaults to `proof-of-payment`. |
+| `POP_SIGNED_URL_TTL` | Optional | Signed document link lifetime in minutes; default 5. |
+| `DATABASE_URL` | Migration/seed tools only | Not used at runtime. |
 
-| # | Variable | Required? | Notes |
-| --- | --- | --- | --- |
-| 1 | `NEXT_PUBLIC_SUPABASE_URL` | required | Supabase project URL. |
-| 2 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | required | Anonymous key; RLS governs what it can see. |
-| 3 | `SUPABASE_SERVICE_ROLE_KEY` | required | Server only; bypasses RLS. Never `NEXT_PUBLIC_`. |
-| 4 | `APP_URL` | required | The public origin; also Supabase Auth Site URL, with `/login/reset` allowed. |
-| 5 | `PORTAL_SECRET` | required | At least 32 random characters; rotation invalidates portal sessions and outstanding OTP hashes. |
-| 6 | `CRON_SECRET` | required | Long random; the scheduler sends it as `Bearer` for the daily 05:00 UTC sweep. |
-| 7 | `RESEND_API_KEY` | required for delivery | Without it every outbox row is `skipped` with a reason. |
-| 8 | `RESEND_FROM` | required for delivery | Sender on your verified Resend domain. |
-| 9 | `ORG_NAME` | optional | Email letterhead; defaults to `Payments and PoP`. |
-| 10 | `POP_BUCKET` | optional | Defaults to `proof-of-payment`. |
-| 11 | `POP_SIGNED_URL_TTL` | optional | Minutes a signed PoP link lives; default 5. |
-| 12 | `DATABASE_URL` | migrations only | Not used by the app at runtime; prefer the transaction pooler for production runs. |
+Before intake, test a first-time portal link with Auth signups disabled, approval
+mail, an existing staff login, runner capture, and private document access on the
+actual staging project. Local SQL tests do not exercise Auth SMTP or Storage.

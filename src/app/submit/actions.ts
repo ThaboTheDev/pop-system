@@ -69,7 +69,7 @@ export async function submitPop(formData: FormData): Promise<SubmitResult> {
 
   const { data: participant } = await sb
     .from("participants")
-    .select("id, full_name, registration_status")
+    .select("id, full_name")
     .eq("participant_ref", participantRef)
     .maybeSingle();
 
@@ -78,17 +78,7 @@ export async function submitPop(formData: FormData): Promise<SubmitResult> {
   if (!participant)
     return { error: "That participant ID was not found. Check it against your registration letter." };
 
-  // Registration gate (migration 0006). The database trigger is the actual
-  // enforcement and would refuse the payment insert below; these branches only
-  // turn that refusal into plain words. The pending/rejected distinction is
-  // deliberate: a pending applicant needs "wait" and a rejected one needs
-  // "contact us", and the person holding the ID already knows the record
-  // exists — their ID is only ever sent to them on approval, so nothing new
-  // is revealed here.
-  if (participant.registration_status === "pending")
-    return { error: "Your registration is still being reviewed. You can submit your proof of payment once it is approved - we will email you." };
-  if (participant.registration_status === "rejected")
-    return { error: "Your registration was not approved, so this participant ID cannot be used. Contact the institute if you believe this is a mistake." };
+  // Only enrolled participants exist in this table. Applications have no ID.
 
   const documents = [];
   for (const f of files) {

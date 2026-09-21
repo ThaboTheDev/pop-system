@@ -5,6 +5,7 @@ import { currentUser } from "@/lib/auth";
 export async function GET(request: Request) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  if (user.role === "runner") return NextResponse.json({ error: "Use the runner participant lookup" }, { status: 403 });
 
   const q = (new URL(request.url).searchParams.get("q") ?? "").trim();
   if (q.length < 2) return NextResponse.json({ participants: [], payments: [] });

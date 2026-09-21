@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { supabaseServer } from "./supabase/server";
 import type { AppUser, UserRole } from "./types";
 
-/** The signed-in administrator, or null.
+/** The signed-in active staff member or runner, or null.
  *
  *  Wrapped in React `cache()` so all calls within a single request share one
  *  `auth.getUser()` round-trip and one `app_users` lookup. Without this the
@@ -24,17 +24,19 @@ export const currentUser = cache(async (): Promise<AppUser | null> => {
   return data as AppUser;
 });
 
-/** Guards a page. Sends anyone without an active administrator record to the
- *  sign-in screen rather than showing an empty dashboard. */
+/** Staff-area guard, also used by staff actions. Runner pages/actions use
+ *  requireRole("runner") instead; they must never inherit this workspace. */
 export async function requireUser(): Promise<AppUser> {
   const user = await currentUser();
   if (!user) redirect("/login");
+  if (user.role === "runner") redirect("/runner");
   return user;
 }
 
 export async function requireRole(...roles: UserRole[]): Promise<AppUser> {
-  const user = await requireUser();
-  if (!roles.includes(user.role)) redirect("/dashboard?denied=1");
+  const user = await currentUser();
+  if (!user) redirect("/login");
+  if (!roles.includes(user.role)) redirect(user.role === "runner" ? "/runner?denied=1" : "/dashboard?denied=1");
   return user;
 }
 
@@ -45,7 +47,7 @@ export const canVerify = (u: AppUser) =>
   u.role === "super_admin" || u.role === "finance_admin" ||
   (u.role === "course_admin" && u.can_verify);
 
-export const canExport = (u: AppUser) => u.role !== "viewer";
+export const canExport = (u: AppUser) => u.role !== "viewer" && u.role !== "runner";
 export const canManageUsers = (u: AppUser) => u.role === "super_admin";
 export const canEditParticipants = (u: AppUser) =>
   u.role === "super_admin" || u.role === "finance_admin";

@@ -28,7 +28,7 @@ export default function LoginPage() {
           <p className="eyebrow">Administration</p>
           <h1>Sign in</h1>
           <p className="muted" style={{ fontSize: "0.875rem" }}>
-            Finance and registry staff only.
+            Finance, registry staff and runners.
           </p>
           <div className="card" style={{ marginTop: 18 }}>
             <Suspense fallback={<p className="muted">Loading the sign in form.</p>}>
@@ -36,8 +36,7 @@ export default function LoginPage() {
             </Suspense>
           </div>
           <p className="faint" style={{ marginTop: 14 }}>
-            Participants submitting a proof of payment do not sign in.
-            Use the link the institute sent you.
+            Participants: <a href="/portal/login">sign in by email link</a> or <a href="/register">apply for a programme</a>.
           </p>
         </div>
       </main>

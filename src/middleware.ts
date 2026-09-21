@@ -11,7 +11,7 @@ export async function middleware(request: NextRequest) {
   // reassigning the response inside the setAll callback (which previously
   // constructed a new NextResponse for every cookie and could drop earlier
   // cookies, triggering spurious re-auth and extra round trips).
-  let response = NextResponse.next({ request });
+  const response = NextResponse.next({ request });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,13 +40,15 @@ export async function middleware(request: NextRequest) {
   if (!isApi && !isStatic) {
     const { data: { user } } = await supabase.auth.getUser();
     const isPublic =
-      path === "/" || path.startsWith("/login") || path.startsWith("/submit") || path === "/register" || path === "/portal" || path.startsWith("/portal/") || path.startsWith("/clarify/");
+      path === "/" || path.startsWith("/login") || path.startsWith("/submit") || path === "/auth/callback" || path === "/register" || path === "/portal" || path.startsWith("/portal/") || path.startsWith("/clarify/");
 
     if (!user && !isPublic) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("next", path);
-      return NextResponse.redirect(url);
+      const redirect = NextResponse.redirect(url);
+      response.cookies.getAll().forEach(cookie => redirect.cookies.set(cookie));
+      return redirect;
     }
 
   }

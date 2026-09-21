@@ -1,4 +1,4 @@
-export type UserRole = "super_admin" | "finance_admin" | "course_admin" | "viewer";
+export type UserRole = "super_admin" | "finance_admin" | "course_admin" | "viewer" | "runner";
 
 export type PaymentStatus =
   | "pending_review" | "under_review" | "verified"
@@ -8,11 +8,21 @@ export type ParticipantStatus =
   | "not_paid" | "partially_paid" | "fully_paid"
   | "verification_pending" | "payment_issue" | "refund_adjustment";
 
-export type RegistrationStatus = "pending" | "approved" | "rejected";
-export type RegistrationSource = "registry" | "import" | "self";
+export type ApplicationStatus = "pending" | "approved" | "declined";
+export type RegistrationSource = "registry" | "import" | "application";
+
+// Increment this whenever the wording in PrivacyNotice changes. Every new
+// application records the version shown, the consent method and a DB timestamp.
+export const PRIVACY_NOTICE_VERSION = "2026-09-21.1";
+
+export interface RegistrationProgramme {
+  code: string;
+  name: string;
+  amount_due: number;
+}
 
 export type PaymentMethod =
-  | "eft" | "cash_deposit" | "card" | "mobile_money" | "payroll_deduction" | "other";
+  | "eft" | "cash" | "cash_deposit" | "card" | "mobile_money" | "payroll_deduction" | "other";
 
 export interface AppUser {
   id: string;
@@ -42,11 +52,8 @@ export interface Participant {
   payment_status: ParticipantStatus;
   last_payment_date: string | null;
   notes: string | null;
-  registration_status: RegistrationStatus;
   registration_source: RegistrationSource;
-  registration_note: string | null;
-  reviewed_by: string | null;
-  reviewed_at: string | null;
+  auth_user_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -123,6 +130,7 @@ export const REJECTION_REASONS = [
 
 export const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: "eft", label: "EFT / bank transfer" },
+  { value: "cash", label: "Cash collected in person" },
   { value: "cash_deposit", label: "Cash deposit" },
   { value: "card", label: "Card payment" },
   { value: "mobile_money", label: "Mobile money" },

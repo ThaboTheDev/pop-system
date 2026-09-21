@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { currentUser } from "@/lib/auth";
+import { documentAccess } from "@/lib/pdf";
 import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
@@ -10,7 +9,7 @@ export const maxDuration = 30;
 
 /** The only route to a stored document.
  *  Nothing is served from a public URL: the request is authenticated, the
- *  administrator's read is checked against RLS, and the file is then proxied
+ *  staff member or participant's read is checked against RLS, and the file is then proxied
  *  from a short-lived signed URL that is never handed to the browser.
  *
  *  We forward the upstream response body directly (no buffering, no cloning)
@@ -19,11 +18,11 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ popId: string }> },
 ) {
-  const user = await currentUser();
-  if (!user) return new NextResponse("Not signed in", { status: 401 });
+  const access = await documentAccess();
+  if (!access) return new NextResponse("Not signed in", { status: 401 });
 
   const { popId } = await params;
-  const sb = await supabaseServer();
+  const { sb, user } = access;
 
   const { data: pop } = await sb
     .from("pops")
@@ -44,12 +43,12 @@ export async function GET(
   if (error || !signed) return new NextResponse("The document could not be opened", { status: 500 });
 
   const download = new URL(request.url).searchParams.get("download") === "1";
-  logAudit(user, download ? "pop.downloaded" : "pop.streamed", "payment",
+  if (user) logAudit(user, download ? "pop.downloaded" : "pop.streamed", "payment",
     doc.payment_id, `${download ? "Downloaded" : "Viewed"} ${doc.file_name}`);
 
   const upstream = await fetch(signed.signedUrl, {
     signal: request.signal,
-    cache: "force-cache",
+    cache: "no-store",
   });
   if (!upstream.ok || !upstream.body) {
     return new NextResponse("The document could not be read", { status: 502 });
@@ -61,7 +60,7 @@ export async function GET(
       "Content-Type": doc.mime_type,
       "Content-Disposition":
         `${download ? "attachment" : "inline"}; filename="${safeName}"`,
-      "Cache-Control": "private, max-age=60",
+      "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
       "Content-Security-Policy": "sandbox; default-src 'none'",
     },

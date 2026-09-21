@@ -33,7 +33,7 @@ export async function operationsImport(_state: OperationsImportResult, form: For
     prepared.push({id:p.id,ref:p.participant_ref,patch});
    }else{
     if(!validDate(r.payment_date??'')||r.payment_date>new Date().toISOString().slice(0,10))throw new Error(`Row ${i+2}: invalid payment date`);
-    const method=r.method||'eft';if(!['eft','cash_deposit','card','mobile_money','payroll_deduction','other'].includes(method))throw new Error(`Row ${i+2}: invalid method`);
+    const method=r.method||'eft';if(!['eft','cash','cash_deposit','card','mobile_money','payroll_deduction','other'].includes(method))throw new Error(`Row ${i+2}: invalid method`);
     prepared.push({id:p.id,ref:p.participant_ref,patch,payment:{amount:money(r.amount??''),date:r.payment_date,reference:r.reference||'',method,bank:r.bank||''}});
    }
   }
