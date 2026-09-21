@@ -1,53 +1,27 @@
-import { supabaseAdmin } from "@/lib/supabase/admin";
-import { RegisterForm } from "./RegisterForm";
+import Link from "next/link";
+import { ApplicationForm } from "@/components/ApplicationForm";
 import { Crest } from "@/components/Brand";
+import { registrationProgrammes } from "@/lib/applications";
+import { registerApplication } from "./actions";
 
-export const metadata = {
-  title: "Register | MSR Learning Institute",
-  robots: { index: false, follow: false },
-};
-
+export const metadata = { title: "Apply | MSR Learning Institute", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
 
 export default async function RegisterPage() {
-  // The public form needs the open programmes, and this page has no session.
-  // If the query fails (or none are open) the visitor gets a plain notice —
-  // never an error boundary on a public page.
-  let programmes: { id: string; name: string; amount_due: number }[] | null = null;
-  try {
-    const sb = supabaseAdmin();
-    const { data } = await sb
-      .from("programmes")
-      .select("id, name, amount_due")
-      .eq("is_active", true)
-      .order("name");
-    programmes = data ?? [];
-  } catch {
-    programmes = null;
-  }
-
+  const programmes = await registrationProgrammes();
   return (
     <div className="portal">
       <header className="portal-head">
         <Crest className="brand-logo" size={58} />
         <div className="crest">MSR Learning Institute</div>
-        <h1>Register for a programme</h1>
-        <p>
-          Send your details to the institute. The finance office reviews every
-          registration, and the decision arrives by email.
-        </p>
+        <h1>Apply for a programme</h1>
+        <p>Staff review every application. Your Participant ID is created only after approval.</p>
       </header>
       <main className="portal-body">
-        {programmes && programmes.length > 0 ? (
-          <RegisterForm programmes={programmes} />
-        ) : (
-          <div className="card">
-            <div className="notice notice-info" style={{ marginBottom: 0 }}>
-              Registration is not open yet. Please check again soon, or contact
-              the institute if you expected to be able to register now.
-            </div>
-          </div>
-        )}
+        {programmes?.length
+          ? <ApplicationForm programmes={programmes} submit={registerApplication} />
+          : <div className="card notice notice-info">Applications are not available right now. Please check again later or contact the registry.</div>}
+        <p className="faint" style={{ marginTop: 16 }}>Already enrolled? <Link href="/portal/login">Sign in to the participant portal</Link>.</p>
       </main>
     </div>
   );

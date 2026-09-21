@@ -3,6 +3,9 @@ import type { ParticipantStatus, PaymentStatus } from "@/lib/types";
 
 const tone: Record<string, string> = {
   verified: "badge-ok",
+  approved: "badge-ok",
+  pending: "badge-wait",
+  declined: "badge-stop",
   fully_paid: "badge-ok",
   pending_review: "badge-wait",
   under_review: "badge-note",

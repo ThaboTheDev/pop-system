@@ -1,13 +1,16 @@
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { currentUser } from "@/lib/auth";
-import { portalParticipant } from "@/lib/portal";
+import { participantSession } from "@/lib/portal";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
 export async function documentAccess() {
   const user = await currentUser();
+  if (user?.role === "runner") return null;
   if (user) return { sb: await supabaseServer(), user, participantId: null };
-  const participantId = await portalParticipant();
-  return participantId ? { sb: supabaseAdmin(), user: null, participantId } : null;
+  const session = await participantSession();
+  return session.status === "linked"
+    ? { sb: await supabaseServer(), user: null, participantId: session.participantId }
+    : null;
 }
 export async function pdfResponse(title: string, lines: string[], name: string, actorId: string | null, entityId: string) {
   const pdf = await PDFDocument.create(); const font = await pdf.embedFont(StandardFonts.Helvetica);

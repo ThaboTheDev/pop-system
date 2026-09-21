@@ -172,6 +172,7 @@ export async function commitImport(rowsJson: string): Promise<ImportReport> {
         programme_id: programmeId,
         cohort_id: cohort?.id ?? null,
         amount_due: r.amount_due,
+        registration_source: "import",
       };
     });
     const { error, count } = await admin.from("participants").insert(batch, { count: "exact" });

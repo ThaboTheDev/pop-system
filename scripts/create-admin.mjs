@@ -18,7 +18,7 @@ if (password.length < 12) {
   console.error("Use a password of at least 12 characters.");
   process.exit(1);
 }
-const roles = ["super_admin", "finance_admin", "course_admin", "viewer"];
+const roles = ["super_admin", "finance_admin", "course_admin", "viewer", "runner"];
 if (!roles.includes(role)) {
   console.error(`Role must be one of: ${roles.join(", ")}`);
   process.exit(1);
@@ -53,6 +53,7 @@ if (created.error) {
 
 const { error } = await sb.from("app_users").upsert({
   id: userId, email, full_name: fullName, role, is_active: true,
+  ...(role === "runner" ? { can_verify: false } : {}),
 }, { onConflict: "id" });
 
 if (error) { console.error(error.message); process.exit(1); }

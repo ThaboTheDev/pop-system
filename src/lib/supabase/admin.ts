@@ -1,8 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
-/** Service-role client. Bypasses RLS, so it is used only where a request has
- *  no session by design: public PoP submission and signed file links.
- *  Never import this into a Client Component.
+/** Privileged server-only client for public proof submission, eligible Auth
+ *  provisioning, outbox processing and storage signing AFTER an RLS read.
+ *  Never use it to read participant portal data or import it into a client component.
  *
  *  Module-level singleton: creating a Supabase client is cheap but not free,
  *  and in serverless environments reusing one per cold start avoids repeated

@@ -7,10 +7,10 @@ export const templates = {
   payment_rejected: ["Payment rejected", "payment_ref", "reason"],
   clarification_requested: ["Please resubmit your payment proof", "payment_ref", "reason", "url"],
   payment_reminder: ["Payment reminder", "participant_ref", "amount", "due_date"],
-  portal_otp: ["Your portal verification code", "code"],
   adjustment_decided: ["Account adjustment decision", "amount", "status", "reason"],
   registration_received: ["Registration received", "name", "programme"],
-  registration_approved: ["Registration approved", "name", "participant_ref", "programme"],
+  registration_approved: ["Registration approved", "name", "participant_ref", "programme", "amount_due"],
+  payment_captured: ["Payment recorded — awaiting verification", "payment_ref", "amount"],
   registration_rejected: ["Registration not approved", "name", "reason"],
 } as const;
 export type Template = keyof typeof templates;
@@ -30,10 +30,15 @@ export async function queueParticipantMessage(participantId: string, template: T
     channel: "email", recipient: p.email,
   });
   if (insertError) throw new Error(insertError.message);
+  scheduleOutbox();
+}
+
+/** Used after transactional RPCs too; email delivery is not part of approval. */
+export function scheduleOutbox() {
   // Deliver once the response is flushed rather than waiting for the daily
   // sweep: the cron runs once a day (the hosting plan allows no more), and a
-  // portal sign-in code lives for only ten minutes, so scheduling alone would
-  // strand it. after() is registration-only — if the process dies before the
+  // registration acknowledgement should not wait for tomorrow. Supabase Auth
+  // sends portal links separately. If the process dies before the
   // callback runs, the row stays queued and the sweep picks it up.
   try {
     after(async () => {

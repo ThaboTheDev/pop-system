@@ -1,0 +1,297 @@
+// Real PostgreSQL, stubbed Supabase auth/storage schemas. No network, live
+// credentials, provider calls, or production data. Every role assertion executes
+// SQL AS that role rather than merely checking a page's filtering.
+import EmbeddedPostgres from 'embedded-postgres';
+import { readFile, mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import assert from 'node:assert/strict';
+
+const directory = await mkdtemp(join(tmpdir(), 'pop-phase2-'));
+const pg = new EmbeddedPostgres({ databaseDir: join(directory, 'db'), port: 55440, user: 'postgres', password: 'test-only', persistent: false, createPostgresUser: process.getuid?.() === 0, onLog: () => {}, onError: console.error });
+let db;
+try {
+  await pg.initialise(); await pg.start(); db = pg.getPgClient(); await db.connect();
+  const q = async (sql, params = []) => (await db.query(sql, params)).rows;
+  const scalar = async (sql, params = []) => Object.values((await q(sql, params))[0])[0];
+  const as = async (id = null, role = 'authenticated', client = db) => {
+    await client.query('reset role');
+    await client.query("select set_config('request.jwt.claim.sub',$1,false), set_config('request.jwt.claim.role',$2,false)", [id ?? '', role]);
+    if (role !== 'postgres') await client.query(`set role ${role}`);
+  };
+  const migrate = async file => {
+    await db.query('begin');
+    try {
+      await db.query(await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), 'utf8'));
+      await db.query('commit');
+    } catch (error) { await db.query('rollback'); throw error; }
+  };
+  await q(`create role anon; create role authenticated; create role service_role bypassrls;
+    create schema auth;
+    create table auth.users(id uuid primary key default gen_random_uuid(), email text, email_confirmed_at timestamptz);
+    create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
+    create function auth.role() returns text language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claim.role',true),''),'service_role') $$;
+    create schema storage; create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
+    create table storage.objects(id uuid,bucket_id text); alter table storage.objects enable row level security;
+    grant usage on schema public,auth to anon,authenticated,service_role;
+    alter default privileges in schema public grant all on tables to authenticated,service_role;
+    alter default privileges in schema public grant usage,select on sequences to authenticated,service_role;`);
+  for (const file of ['0001_schema.sql','0002_functions.sql','0003_security.sql','0004_operations.sql','0005_email_only.sql','0006_registration.sql']) await migrate(file);
+  const authUser = (email, verified = true) => scalar('insert into auth.users(email,email_confirmed_at) values($1,case when $2 then now() end) returning id', [email, verified]);
+  const staffUser = async (email, role) => {
+    const id = await authUser(email);
+    await q('insert into app_users(id,email,full_name,role) values($1,$2::text,$2::text,$3)', [id,email,role]);
+    return id;
+  };
+  const superAdmin = await staffUser('super@example.test','super_admin');
+  const finance = await staffUser('finance@example.test','finance_admin');
+  const noAppUser = await authUser('no-staff-row@example.test');
+  const programme = await scalar("insert into programmes(code,name,amount_due) values('OPEN','Open programme',12000) returning id");
+  await q("insert into programmes(code,name,amount_due,is_active) values('CLOSED','Closed programme',1000,false)");
+  const legacyPending = await scalar(`insert into participants(first_name,surname,email,programme_id,amount_due,registration_source,registration_status,consent_at,notes)
+    values('Legacy','Pending','legacy-pending@example.test',$1,1000,'self','pending',now(),'Keep this historical note') returning id`,[programme]);
+  const legacyDeclined = await scalar(`insert into participants(first_name,surname,email,programme_id,amount_due,registration_source,registration_status,consent_at,registration_note,reviewed_by,reviewed_at)
+    values('Legacy','Declined','legacy-declined@example.test',$1,2000,'self','rejected',now(),'Missing documents',$2,now()) returning id`,[programme,finance]);
+  const legacyApproved = await scalar(`insert into participants(first_name,surname,email,programme_id,amount_due,registration_source,consent_at)
+    values('Legacy','Enrolled','legacy-approved@example.test',$1,500,'self',now()) returning id`,[programme]);
+  const legacyNoConsent = await scalar(`insert into participants(first_name,surname,email,programme_id,amount_due,registration_source,registration_status)
+    values('Legacy','NoConsent','legacy-noconsent@example.test',$1,1000,'self','pending') returning id`,[programme]);
+  const oldRef = await scalar('select participant_ref from participants where id=$1',[legacyApproved]);
+  const pendingRef = await scalar('select participant_ref from participants where id=$1',[legacyPending]);
+  const legacyPayment = await scalar('insert into payments(participant_id,programme_id,amount,payment_date) values($1,$2,100,current_date) returning id',[legacyApproved,programme]);
+  await q("insert into notifications(participant_id,template,recipient) values($1,'registration_received','legacy-pending@example.test')",[legacyPending]);
+  await q("insert into notifications(participant_id,template,recipient) values($1,'portal_otp','legacy-approved@example.test')",[legacyApproved]);
+  await q('insert into payment_plans(participant_id,instalment_no,amount,due_date) values($1,1,10,current_date)',[legacyPending]);
+  await migrate('0007_runner_role.sql'); // committed before using either enum value
+  await assert.rejects(migrate('0008_registration_portal.sql'), /LEGACY_APPLICANT_HAS_FINANCIAL_RECORDS/);
+  assert.equal(await scalar("select to_regclass('public.applications')"), null, 'unsafe migration rolled back completely');
+  assert.equal(await scalar('select count(*)::int from participants'),4);
+  await q('delete from payment_plans where participant_id=$1',[legacyPending]);
+  await migrate('0008_registration_portal.sql');
+  await q("set statement_timeout='30s'");
+  assert.equal(await scalar('select count(*)::int from participants'),1);
+  assert.equal(await scalar('select participant_ref from participants where id=$1',[legacyApproved]),oldRef);
+  assert.equal(await scalar('select participant_id from payments where id=$1',[legacyPayment]),legacyApproved);
+  assert.equal(await scalar('select count(*)::int from applications'),4);
+  assert.equal(await scalar("select legacy_record->>'notes' from applications where legacy_participant_id=$1",[legacyPending]),'Keep this historical note');
+  assert.equal(await scalar('select legacy_participant_ref from applications where legacy_participant_id=$1',[legacyPending]),pendingRef);
+  assert.equal(await scalar('select decision_reason from applications where legacy_participant_id=$1',[legacyDeclined]),'Missing documents');
+  assert.equal(await scalar('select consent_given from applications where legacy_participant_id=$1',[legacyNoConsent]),false);
+  assert.equal(await scalar("select count(*)::int from notifications where template='registration_received' and participant_id is null and application_id is not null"),1);
+  assert.equal(await scalar("select state from notifications where template='portal_otp'"),'skipped');
+  assert.equal(await scalar("select to_regclass('public.portal_otps')"),null);
+  assert.equal(await scalar("select to_regprocedure('public.approve_registration(uuid,uuid)')"),null);
+  assert.equal(await scalar("select to_regprocedure('public.issue_portal_otp(uuid,text)')"),null);
+  assert.equal(await scalar("select (dashboard_stats()->>'outstanding_total')::numeric::text"),'500.00');
+  const legacyApplication = await scalar('select id from applications where legacy_participant_id=$1',[legacyNoConsent]);
+  await as(finance);
+  await assert.rejects(q('select approve_application($1,$2)',[legacyApplication,finance]),/CONSENT_REQUIRED/);
+  console.log('PASS forward migration: retains enrolled IDs/payments, archives legacy applications/consent/outbox, removes applicants from totals, refuses unsafe data loss');
+
+  const submitSQL = "select submit_application('Nomvula','Sithole',$1,'0721234567',$2,$3,$4,$5)";
+  const submit = (email, { code='OPEN', consent=true, version='2026-09-21.1', inPerson=false } = {}) => scalar(submitSQL,[email,code,consent,version,inPerson]);
+  await as(null,'anon');
+  assert.equal((await q('select * from registration_programmes()')).length,1);
+  await assert.rejects(q('select * from applications'),/permission denied/);
+  await assert.rejects(submit('new@example.test',{consent:false}),/CONSENT_REQUIRED/);
+  await assert.rejects(submit('new@example.test',{version:null}),/NOTICE_VERSION_REQUIRED/);
+  await assert.rejects(submit('new@example.test',{code:'UNKNOWN'}),/UNKNOWN_PROGRAMME/);
+  await assert.rejects(submit('new@example.test',{code:'CLOSED'}),/UNKNOWN_PROGRAMME/);
+  await assert.rejects(submit('bad-email'),/INVALID_EMAIL/);
+  await assert.rejects(submit('new@example.test',{inPerson:true}),/FORBIDDEN/);
+  await as(null,'postgres');
+  const initialCount = await scalar('select count(*)::int from participants');
+  const initialSeq = await scalar('select last_value::text from participant_ref_seq');
+  const initialStats = await scalar('select dashboard_stats()');
+  await as(null,'anon');
+  assert.deepEqual(await submit('NEW@example.test'),{already_applied:false});
+  assert.deepEqual(await submit(' new@example.test '),{already_applied:true});
+  await as(null,'postgres');
+  assert.equal(await scalar('select count(*)::int from participants'),initialCount);
+  assert.equal(await scalar('select last_value::text from participant_ref_seq'),initialSeq);
+  assert.deepEqual(await scalar('select dashboard_stats()'),initialStats);
+  const application = (await q("select * from applications where email='new@example.test'"))[0];
+  assert.equal(application.participant_id,null);
+  assert.equal(application.consent_given,true);
+  assert.ok(application.consent_at);
+  assert.equal(application.privacy_notice_version,'2026-09-21.1');
+  assert.equal(application.consent_method,'online');
+  assert.equal(application.captured_by,null);
+  await as(noAppUser);
+  await assert.rejects(q('select approve_application($1,$2)',[application.id,noAppUser]),/FORBIDDEN/);
+  await assert.rejects(q('select approve_application($1,$2)',[application.id,finance]),/FORBIDDEN/);
+  await as(finance);
+  await assert.rejects(q('select approve_application($1,$2,-1)',[application.id,finance]),/INVALID_FEE/);
+  await assert.rejects(q('select approve_application($1,$2,1.001)',[application.id,finance]),/INVALID_FEE/);
+  await assert.rejects(q('select decline_application($1,$2,$3)',[application.id,'  ',finance]),/DECLINE_REASON_REQUIRED/);
+  await assert.rejects(q("update applications set status='approved' where id=$1",[application.id]),/permission denied/);
+  const approved = await scalar('select approve_application($1,$2)',[application.id,finance]);
+  assert.equal(await scalar('select amount_due::text from participants where id=$1',[approved.participant_id]),'12000.00');
+  assert.equal(await scalar('select participant_ref from participants where id=$1',[approved.participant_id]),approved.participant_ref);
+  assert.equal(await scalar("select count(*)::int from audit_logs where action='application.approved' and entity_id=$1",[application.id]),1);
+  assert.equal(await scalar("select count(*)::int from notifications where application_id=$1 and template='registration_approved' and payload->>'participant_ref'=$2",[application.id,approved.participant_ref]),1);
+  await assert.rejects(q('select approve_application($1,$2)',[application.id,finance]),/ALREADY_REVIEWED/);
+  await assert.rejects(q('select decline_application($1,$2,$3)',[application.id,'Late change',finance]),/ALREADY_REVIEWED/);
+  // A failed review may not partially modify the row.
+  assert.equal(await scalar('select status from applications where id=$1',[application.id]),'approved');
+  await as(null,'anon');
+  await submit('bursary@example.test'); await submit('decline@example.test');
+  await as(finance);
+  const bursaryApp = await scalar("select id from applications where email='bursary@example.test'");
+  const bursary = await scalar('select approve_application($1,$2,0)',[bursaryApp,finance]);
+  assert.equal(await scalar('select amount_due::text from participants where id=$1',[bursary.participant_id]),'0.00');
+  const declineApp = await scalar("select id from applications where email='decline@example.test'");
+  const seqBeforeDecline = await scalar('select last_value::text from participant_ref_seq');
+  await q("select decline_application($1,'Programme requirements not met',$2)",[declineApp,finance]);
+  assert.equal(await scalar('select participant_id from applications where id=$1',[declineApp]),null);
+  assert.equal(await scalar('select last_value::text from participant_ref_seq'),seqBeforeDecline);
+  assert.equal(await scalar("select count(*)::int from notifications where application_id=$1 and template='registration_rejected' and payload->>'reason'='Programme requirements not met'",[declineApp]),1);
+
+  // Simultaneous public requests still produce one row and one acknowledgement.
+  const clients = [pg.getPgClient(),pg.getPgClient()];
+  try {
+    await Promise.all(clients.map(c => c.connect()));
+    await Promise.all(clients.map(c => as(null,'anon',c)));
+    const attempts = await Promise.all(clients.map(c => c.query(submitSQL,['race@example.test','OPEN',true,'2026-09-21.1',false])));
+    assert.deepEqual(attempts.map(r => r.rows[0].submit_application.already_applied).sort(),[false,true]);
+  } finally { await Promise.all(clients.map(c => c.end())); }
+  assert.equal(await scalar("select count(*)::int from applications where email='race@example.test'"),1);
+  console.log('PASS applications: consent/version/programme validation, idempotent concurrent submissions, no early participant/ID/fees, staff-only atomic approval/decline, default fee and full bursary');
+
+  await as(null,'postgres');
+  const runner = await staffUser('runner@example.test','runner');
+  const runner2 = await staffUser('runner2@example.test','runner');
+  await assert.rejects(q('update app_users set can_verify=true where id=$1',[runner]),/runner_never_verifies/);
+  await as(runner);
+  assert.equal(await scalar('select is_admin()'),false);
+  assert.equal(await scalar('select can_verify_payments()'),false);
+  await submit('captured@example.test',{inPerson:true});
+  const ownApplication = (await q('select * from applications'))[0];
+  assert.equal(ownApplication.captured_by,runner);
+  assert.equal(ownApplication.source,'runner');
+  assert.equal(ownApplication.consent_method,'runner_declaration');
+  assert.equal(ownApplication.privacy_notice_version,'2026-09-21.1');
+  assert.equal(await scalar('select count(*)::int from applications'),1);
+  await as(runner2);
+  assert.equal(await scalar('select count(*)::int from applications'),0);
+  await submit('captured2@example.test',{inPerson:true});
+  await as(runner);
+  assert.equal(await scalar('select count(*)::int from applications'),1);
+  await assert.rejects(q('select approve_application($1,$2)',[ownApplication.id,runner]),/FORBIDDEN/);
+  await assert.rejects(q('select decline_application($1,$2,$3)',[ownApplication.id,'No',runner]),/FORBIDDEN/);
+  assert.equal(await scalar('select count(*)::int from audit_logs'),0);
+  assert.equal(await scalar('select count(*)::int from participants'),0);
+  assert.equal(await scalar('select count(*)::int from payments'),0);
+  assert.equal(await scalar('select count(*)::int from notifications'),0);
+  assert.equal((await q('select * from runner_participant_lookup($1)',[approved.participant_ref]))[0].full_name,'Nomvula Sithole');
+  assert.equal((await q("select * from runner_participant_lookup('MSRI-999999')")).length,0);
+  const captureSQL = "select capture_runner_payment($1,$2,current_date,'cash',$3,$4)";
+  const requestId = randomUUID();
+  const captured = await scalar(captureSQL,[approved.participant_ref,200,'CASH-001',requestId]);
+  assert.equal(captured.status,'pending_review');
+  assert.equal(captured.already_recorded,false);
+  const repeated = await scalar(captureSQL,[approved.participant_ref,200,'CASH-001',requestId]);
+  assert.equal(repeated.payment_ref,captured.payment_ref);
+  assert.equal(repeated.already_recorded,true);
+  await assert.rejects(q(captureSQL,[approved.participant_ref,201,'CASH-001',requestId]),/REQUEST_ALREADY_USED/);
+  await assert.rejects(q(captureSQL,[approved.participant_ref,-1,'negative',randomUUID()]),/INVALID_AMOUNT/);
+  await assert.rejects(q("select capture_runner_payment($1,100,current_date+2,'cash','',$2)",[approved.participant_ref,randomUUID()]),/INVALID_DATE/);
+  await as(null,'postgres');
+  const capturedPayment = await scalar('select id from payments where payment_ref=$1',[captured.payment_ref]);
+  assert.equal(await scalar('select count(*)::int from payments where capture_request_id=$1',[requestId]),1);
+  assert.equal(await scalar('select captured_by from payments where id=$1',[capturedPayment]),runner);
+  assert.equal(await scalar('select amount_paid::text from participants where id=$1',[approved.participant_id]),'0.00');
+  await as(runner);
+  assert.equal((await q("update payments set status='verified' where id=$1 returning id",[capturedPayment])).length,0);
+  await assert.rejects(q("select decide_payment($1,'verified',$2)",[capturedPayment,runner]),/FORBIDDEN/);
+  await assert.rejects(q("select decide_payment($1,'verified',$2)",[capturedPayment,finance]),/FORBIDDEN/);
+  await assert.rejects(q('select claim_payment($1)',[capturedPayment]),/FORBIDDEN/);
+  await assert.rejects(q("insert into payments(participant_id,programme_id,amount,payment_date,status) values($1,$2,100,current_date,'verified')",[approved.participant_id,programme]),/row-level security/);
+  assert.equal((await q("update app_users set role='finance_admin' where id=$1 returning id",[runner])).length,0);
+  await as(finance);
+  await q("select decide_payment($1,'verified',$2)",[capturedPayment,finance]);
+  assert.equal(await scalar('select amount_paid::text from participants where id=$1',[approved.participant_id]),'200.00');
+  await as(null,'postgres');
+  await q('update app_users set is_active=false where id=$1',[runner]);
+  await as(runner);
+  assert.equal(await scalar('select count(*)::int from applications'),0);
+  await assert.rejects(q(captureSQL,[approved.participant_ref,200,'x',randomUUID()]),/FORBIDDEN/);
+  await assert.rejects(submit('suspended@example.test',{inPerson:true}),/FORBIDDEN/);
+  await as(null,'postgres'); await q('update app_users set is_active=true where id=$1',[runner]);
+  console.log('PASS runners: own applications only, exact lookup, idempotent pending capture, zero payment updates, verification/approval/escalation/audit denied, suspended runner denied');
+
+  const participantAuth = await authUser('NEW@EXAMPLE.TEST');
+  const unknownAuth = await authUser('unknown@example.test');
+  const unverifiedAuth = await authUser('bursary@example.test',false);
+  // Bring the register to 20,001 participants without using any live seed data.
+  const decoyCount = 20001 - await scalar('select count(*)::int from participants');
+  await q(`insert into participants(first_name,surname,email,programme_id,amount_due)
+    select 'Other',n::text,'decoy-'||n||'@example.test',$1,1000 from generate_series(1,$2::int) n`,[programme,decoyCount]);
+  const secondPayment = await scalar('insert into payments(participant_id,programme_id,amount,payment_date) values($1,$2,50,current_date) returning id',[approved.participant_id,programme]);
+  for (const [id,path] of [[capturedPayment,'own-one'],[secondPayment,'own-two'],[legacyPayment,'other']]) {
+    await q("insert into pops(payment_id,storage_path,file_name,mime_type,file_size) values($1,$2,'proof.pdf','application/pdf',100)",[id,path]);
+  }
+  await q('insert into payment_plans(participant_id,instalment_no,amount,due_date) values($1,1,100,current_date),($2,1,100,current_date)',[approved.participant_id,legacyApproved]);
+  console.log('  Checking participant isolation against 20,001 rows…');
+  await as(unknownAuth);
+  await q("select set_config('request.jwt.claim.email','new@example.test',false)");
+  assert.equal(await scalar('select claim_participant_account()'),null,'forged email claim must not override auth.users');
+  assert.equal(await scalar('select count(*)::int from participants'),0);
+  await as(unverifiedAuth);
+  await assert.rejects(q('select claim_participant_account()'),/EMAIL_NOT_VERIFIED/);
+  await as(participantAuth);
+  assert.equal(await scalar('select count(*)::int from participants'),0,'no access before binding');
+  assert.equal(await scalar('select claim_participant_account()'),approved.participant_id);
+  assert.equal(await scalar('select claim_participant_account()'),approved.participant_id,'repeated sign-in is idempotent');
+  assert.equal(await scalar('select count(*)::int from participants'),1);
+  assert.equal(await scalar('select id from participants'),approved.participant_id);
+  assert.equal(await scalar('select count(*)::int from payments'),2);
+  assert.equal(await scalar('select count(*)::int from pops'),2);
+  assert.equal(await scalar('select count(*)::int from payment_plans'),1);
+  assert.equal(await scalar('select count(*)::int from audit_logs'),0);
+  assert.equal(await scalar('select count(*)::int from applications'),0);
+  assert.equal(await scalar('select count(*)::int from notifications'),0);
+  assert.equal(await scalar('select count(*)::int from payment_verifications'),0);
+  assert.equal((await q('select id from participants where id=$1',[legacyApproved])).length,0);
+  assert.equal((await q("update participants set surname='Tampered' where id=$1 returning id",[approved.participant_id])).length,0);
+  assert.equal((await q("update payments set status='verified' where id=$1 returning id",[secondPayment])).length,0);
+  assert.equal((await q('delete from pops returning id')).length,0);
+  await assert.rejects(q('select approve_application($1,$2)',[ownApplication.id,participantAuth]),/FORBIDDEN/);
+  await assert.rejects(q(captureSQL,[approved.participant_ref,50,'x',randomUUID()]),/FORBIDDEN/);
+  await as(runner); await assert.rejects(q('select claim_participant_account()'),/STAFF_ACCOUNT/);
+  await as(finance); await assert.rejects(q('select claim_participant_account()'),/STAFF_ACCOUNT/);
+  await as(null,'postgres');
+  assert.equal(await scalar('select count(*)::int from participants'),20001);
+  const duplicateAuth = await authUser('new@example.test');
+  const ambiguousAuth = await authUser('ambiguous@example.test');
+  await q("insert into participants(first_name,surname,email,programme_id) values('Same','One','ambiguous@example.test',$1),('Same','Two','ambiguous@example.test',$1)",[programme]);
+  await as(duplicateAuth); await assert.rejects(q('select claim_participant_account()'),/ACCOUNT_ALREADY_CLAIMED/);
+  await as(ambiguousAuth); await assert.rejects(q('select claim_participant_account()'),/AMBIGUOUS_EMAIL/);
+  assert.equal(await scalar('select count(*)::int from participants'),0);
+  await as(finance);
+  await assert.rejects(q('update participants set auth_user_id=$1 where id=$2',[unverifiedAuth,bursary.participant_id]),/INVALID_PARTICIPANT_BINDING/);
+  await as(null,'postgres');
+  await assert.rejects(q("insert into app_users(id,email,full_name,role) values($1,'new@example.test','No staff binding','viewer')",[participantAuth]),/PARTICIPANT_ACCOUNT_CANNOT_BE_STAFF/);
+  await q('update app_users set is_active=false where id=$1',[runner]);
+  await as(runner); await assert.rejects(q('select claim_participant_account()'),/STAFF_ACCOUNT/);
+  await as(finance);
+  await q("update participants set email='corrected@example.test' where id=$1",[approved.participant_id]);
+  await as(participantAuth);
+  assert.equal(await scalar('select count(*)::int from participants'),0,'registry email correction revokes old access');
+  assert.equal(await scalar('select claim_participant_account()'),null);
+  await as(null,'postgres');
+  const correctedAuth = await authUser('corrected@example.test');
+  await as(correctedAuth); assert.equal(await scalar('select claim_participant_account()'),approved.participant_id);
+  await as(null,'service_role');
+  await q('select anonymize_participant($1,$2)',[approved.participant_id,superAdmin]);
+  await as(correctedAuth);
+  assert.equal(await scalar('select count(*)::int from participants'),0,'anonymization revokes portal access');
+  await as(null,'postgres');
+  assert.equal(await scalar('select email from applications where id=$1',[application.id]),null,'anonymization covers new application PII');
+  console.log('PASS participant RLS: 1 of 20,001 records, own 2 payments/2 POPs/plan only; zero audit/applications, no edits, unknown/unverified/ambiguous/staff accounts refused, binding theft blocked, email correction and anonymization revoke access');
+} finally {
+  if (db) await db.end();
+  await pg.stop();
+  await rm(directory,{ recursive: true, force: true });
+}

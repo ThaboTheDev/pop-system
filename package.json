@@ -12,7 +12,10 @@
     "db:seed": "psql \"$DATABASE_URL\" -f supabase/seed/seed.sql",
     "create:admin": "node --env-file=.env.local scripts/create-admin.mjs",
     "test:operations": "node scripts/test-operations.mjs",
-    "preview:css": "node scripts/inline-preview-css.mjs"
+    "preview:css": "node scripts/inline-preview-css.mjs",
+    "test:phase2": "node scripts/test-phase2.mjs",
+    "test": "npm run test:operations && npm run test:phase2 && npm run test:phase2-web",
+    "test:phase2-web": "node scripts/test-phase2-web.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

@@ -5,7 +5,7 @@ import type { CookieOptions } from "@supabase/ssr";
 
 type CookieItem = { name: string; value: string; options?: CookieOptions };
 
-/** Request-scoped client carrying the signed-in administrator's session.
+/** Request-scoped client carrying the signed-in staff member or participant's session.
  *  Every query it makes is subject to row level security.
  *
  *  Wrapped in React cache() so callers (middleware excepted — it doesn't have

@@ -72,8 +72,9 @@ export default async function SettingsPage() {
             <div><dt>Last sent</dt><dd>{last?.sent_at ? formatDateTime(last.sent_at) : "Never"}</dd></div>
           </dl>
           <p className="faint" style={{ marginTop: 14, marginBottom: 0 }}>
-            Emails are queued in the database when a payment is submitted or decided,
-            then delivered by the scheduled worker. Nothing else leaves the system.
+            Application and payment emails are queued transactionally, then delivered
+            after the request or by the daily worker. Portal sign-in links are
+            sent separately by Supabase Auth; configure its SMTP provider too.
           </p>
         </div>
 

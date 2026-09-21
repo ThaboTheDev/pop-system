@@ -6,7 +6,7 @@ import { inviteUser, editUser, resetUserPassword } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-const ROLES = ["super_admin", "finance_admin", "course_admin", "viewer"] as const;
+const ROLES = ["super_admin", "finance_admin", "course_admin", "viewer", "runner"] as const;
 
 /** Administrators: who may sign in, what they may do, and which programmes they
  *  are scoped to. Only a super administrator can reach this page. */
@@ -23,12 +23,12 @@ export default async function UsersPage() {
     <>
       <PageHead
         eyebrow="Administration"
-        title="Administrators"
-        sub="Invite administrators, change roles and programme scope, or send a one-time password reset. An empty programme scope means unrestricted access."
+        title="Staff and runners"
+        sub="Invite staff and runners, change roles or send a password reset. Runners capture applications and payments but cannot verify payments or read audit logs. Programme scope applies to course administrators."
       />
 
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Invite an administrator</h2>
+        <h2>Invite a staff member or runner</h2>
         <form action={inviteUser}>
           <div className="grid grid-3">
             <div className="field" style={{ marginBottom: 0 }}>
@@ -95,7 +95,7 @@ export default async function UsersPage() {
                   <input id={`verify_${u.id}`} type="checkbox" name="verify"
                          defaultChecked={u.can_verify} />
                   <label htmlFor={`verify_${u.id}`}>
-                    A course administrator may verify payments
+                    A course administrator may verify payments (never a runner)
                   </label>
                 </div>
 

@@ -11,9 +11,9 @@ export async function POST(request: Request) {
   const actual = request.headers.get("authorization") ?? "";
   const cron = !!expected && Buffer.byteLength(expected) === Buffer.byteLength(actual) && timingSafeEqual(Buffer.from(expected), Buffer.from(actual));
   if (!cron && (await currentUser())?.role !== "super_admin") return Response.json({ error: "Forbidden" }, { status: 403 });
-  // Daily 05:00 UTC sweep, and only a sweep: time-sensitive mail (portal codes,
-  // submission receipts) is delivered right after its triggering request by
-  // queueParticipantMessage(). Here we drain whatever is left — batches of
+  // Daily 05:00 UTC sweep. Application/payment notices are also scheduled
+  // after their triggering requests. Supabase Auth sends portal links outside
+  // this outbox. Here we drain whatever is left — batches of
   // BATCH until the queue is empty or the time budget is spent. Anything
   // remaining stays queued for tomorrow's run; nothing is silently dropped.
   const startedAt = Date.now();

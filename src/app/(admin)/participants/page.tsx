@@ -23,7 +23,7 @@ export default async function ParticipantsPage(
   // receives more than one page of rows.
   let query = sb
     .from("participants")
-    .select("id, participant_ref, full_name, email, mobile, payment_status, amount_due, amount_paid, outstanding, pop_count, last_payment_date, registration_status, registration_source, programmes(name)",
+    .select("id, participant_ref, full_name, email, mobile, payment_status, amount_due, amount_paid, outstanding, pop_count, last_payment_date, registration_source, programmes(name)",
             { count: "exact" });
 
   if (sp.q) {
@@ -34,7 +34,6 @@ export default async function ParticipantsPage(
   }
   if (sp.programme) query = query.eq("programme_id", sp.programme);
   if (sp.status) query = query.eq("payment_status", sp.status);
-  if (sp.registration) query = query.eq("registration_status", sp.registration);
 
   const sort = sp.sort ?? "registration_date";
   const ascending = sp.dir === "asc";
@@ -80,15 +79,6 @@ export default async function ParticipantsPage(
             <option value="payment_issue">Payment issue</option>
           </select>
         </div>
-        <div className="field">
-          <label htmlFor="registration">Registration</label>
-          <select id="registration" name="registration" defaultValue={sp.registration ?? ""}>
-            <option value="">Any registration</option>
-            <option value="pending">Waiting for approval</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
-        </div>
         <button className="btn btn-primary" type="submit">Apply</button>
         <Link className="btn" href="/participants">Clear</Link>
       </form>
@@ -102,7 +92,7 @@ export default async function ParticipantsPage(
               <tr>
                 <th>Participant ID</th><th>Name</th><th>Programme</th>
                 <th className="num">Due</th><th className="num">Paid</th><th className="num">Outstanding</th>
-                <th className="num">PoPs</th><th>Last payment</th><th>Status</th><th>Registration</th><th></th>
+                <th className="num">PoPs</th><th>Last payment</th><th>Status</th><th>Source</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -120,18 +110,7 @@ export default async function ParticipantsPage(
                   <td className="num">{p.pop_count}</td>
                   <td className="nowrap">{formatDate(p.last_payment_date)}</td>
                   <td><StatusBadge status={p.payment_status} /></td>
-                  <td>
-                    {/* Approved is the normal state, so it stays quiet; pending
-                        and rejected get a badge because they change what the row
-                        can do (no payments, no portal). */}
-                    {p.registration_status === "pending" ? (
-                      <span className="badge badge-wait" title="Self-registration, waiting for finance">Waiting approval</span>
-                    ) : p.registration_status === "rejected" ? (
-                      <span className="badge badge-stop" title="Self-registration, rejected">Rejected</span>
-                    ) : (
-                      <span className="faint">{p.registration_source === "self" ? "Approved (self)" : "Approved"}</span>
-                    )}
-                  </td>
+                  <td><span className="faint">{p.registration_source === "application" ? "Approved application" : p.registration_source === "import" ? "Imported" : "Registry"}</span></td>
                   <td className="right">
                     <Link className="btn btn-sm" href={`/participants/${p.id}`}>Open</Link>
                   </td>
